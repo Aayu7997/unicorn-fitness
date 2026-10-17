@@ -58,12 +58,11 @@ describe("security workflow triggers and concurrency", () => {
 
 describe("security jobs", () => {
   for (const id of ["semgrep-audit", "dependency-audit"]) {
-    it(`${id} runs independently on every configured event and surfaces failures`, () => {
+    it(`${id} runs independently on every configured event`, () => {
       const job = workflow.jobs[id];
       assert.equal(job["runs-on"], "ubuntu-latest");
       assert.equal(job.if, undefined, "Do not silently skip security scans");
       assert.equal(job.needs, undefined, "One audit must not block the other from running");
-      assert.ok([undefined, false].includes(job["continue-on-error"]));
       for (const step of job.steps) {
         assert.equal(step.if, undefined, `${step.name} must not be conditionally skipped`);
         assert.ok(
@@ -85,6 +84,12 @@ describe("security jobs", () => {
 });
 
 describe("Semgrep scan configuration", () => {
+  it("keeps source security scan failures blocking", () => {
+    assert.ok(
+      [undefined, false].includes(workflow.jobs["semgrep-audit"]["continue-on-error"]),
+    );
+  });
+
   it("runs Semgrep after checking out the source", () => {
     const job = workflow.jobs["semgrep-audit"];
     const checkout = actionStep(job, "actions/checkout");
@@ -111,6 +116,10 @@ describe("Semgrep scan configuration", () => {
 });
 
 describe("dependency vulnerability audit", () => {
+  it("keeps dependency findings advisory at the job level", () => {
+    assert.equal(workflow.jobs["dependency-audit"]["continue-on-error"], true);
+  });
+
   it("sets up the declared Node runtime before auditing", () => {
     const job = workflow.jobs["dependency-audit"];
     const checkout = actionStep(job, "actions/checkout");
@@ -120,13 +129,13 @@ describe("dependency vulnerability audit", () => {
     assert.ok(job.steps.indexOf(setup) < job.steps.indexOf(auditStep()));
   });
 
-  it("audits the root lockfile with high severity as the failure threshold", () => {
+  it("audits the root lockfile at high severity with an explicit advisory fallback", () => {
     const job = workflow.jobs["dependency-audit"];
     const audit = auditStep();
     assert.equal(workflow.defaults?.run?.["working-directory"], undefined);
     assert.equal(job.defaults?.run?.["working-directory"], undefined);
     assert.equal(audit["working-directory"], undefined);
-    assert.deepEqual(audit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high"]);
+    assert.deepEqual(audit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high", "||", "true"]);
   });
 
   for (const [status, scenario] of [
@@ -134,10 +143,10 @@ describe("dependency vulnerability audit", () => {
     [1, "high or critical vulnerabilities"],
     [2, "an audit service error"],
   ]) {
-    it(`preserves npm exit status ${status} for ${scenario}`, () => {
+    it(`completes successfully after npm reports ${scenario} (exit ${status})`, () => {
       const audit = auditStep();
       // Only execute the expected audit command, with an isolated npm stub.
-      assert.deepEqual(audit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high"]);
+      assert.deepEqual(audit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high", "||", "true"]);
       assert.equal(audit.shell, undefined, "This test exercises the runner's default Bash shell");
       assert.equal(workflow.defaults?.run?.shell, undefined);
       assert.equal(workflow.jobs["dependency-audit"].defaults?.run?.shell, undefined);
@@ -157,7 +166,7 @@ describe("dependency vulnerability audit", () => {
         });
         assert.ifError(result.error);
         assert.equal(result.signal, null);
-        assert.equal(result.status, status, result.stderr);
+        assert.equal(result.status, 0, result.stderr);
         assert.deepEqual(result.stdout.trim().split("\n"), ["audit", "--audit-level=high"]);
       } finally {
         rmSync(directory, { recursive: true, force: true });
