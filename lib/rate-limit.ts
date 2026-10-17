@@ -83,23 +83,43 @@ export function checkRateLimit(
 
 /**
  * Helper to extract client IP address from NextRequest headers safely.
- * Prioritizes trusted ingress headers (cf-connecting-ip, x-real-ip) and uses the
- * ingress-controlled entry from x-forwarded-for to prevent client IP spoofing.
+ *
+ * NOTE: Using reverse-proxy headers (cf-connecting-ip, x-real-ip) or peeling entries
+ * from x-forwarded-for assumes a trusted proxy appends the client IP and that requests
+ * reach the application only through the trusted proxy topology. When the trusted-proxy
+ * configuration (TRUST_PROXY) is enabled, trusted ingress headers are evaluated and
+ * forwarded entries are selected using a configurable trusted-proxy hop count (default: 1).
+ * When disabled, it falls back to the platform-provided IP.
+ *
+ * @param headers Request Headers
+ * @param options.trustProxy Explicit flag to trust reverse proxy headers (default: process.env.TRUST_PROXY === 'true')
+ * @param options.trustedHops Number of trusted reverse-proxy hops to peel from the right of x-forwarded-for (default: 1)
  */
-export function getClientIp(headers: Headers): string {
-  const cfConnectingIp = headers.get('cf-connecting-ip')
-  if (cfConnectingIp) return cfConnectingIp.trim()
+export function getClientIp(
+  headers: Headers,
+  options?: { trustProxy?: boolean; trustedHops?: number }
+): string {
+  const trustProxy = options?.trustProxy ?? process.env.TRUST_PROXY === 'true'
+  const trustedHops = Math.max(1, options?.trustedHops ?? 1)
 
-  const realIp = headers.get('x-real-ip')
-  if (realIp) return realIp.trim()
+  if (trustProxy) {
+    const cfConnectingIp = headers.get('cf-connecting-ip')
+    if (cfConnectingIp) return cfConnectingIp.trim()
 
-  const forwarded = headers.get('x-forwarded-for')
-  if (forwarded) {
-    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
-    if (parts.length > 0) {
-      return parts[parts.length - 1]
+    const realIp = headers.get('x-real-ip')
+    if (realIp) return realIp.trim()
+
+    const forwarded = headers.get('x-forwarded-for')
+    if (forwarded) {
+      const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
+      if (parts.length > 0) {
+        // Select entry at parts.length minus configured hop count, clamped to 0
+        const index = Math.max(0, parts.length - trustedHops)
+        return parts[index]
+      }
     }
   }
 
-  return 'unknown'
+  // Fallback to platform-provided IP without proxy assumptions
+  return headers.get('x-real-ip') || headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
 }

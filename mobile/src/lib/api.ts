@@ -3,9 +3,20 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+const isHostExcluded = (urlStr?: string): boolean => {
+  if (!urlStr) return false;
+  try {
+    const parsed = new URL(urlStr);
+    return parsed.hostname === '10.192.47.41';
+  } catch {
+    // Invalid URLs do not trigger the excluded-host fallback
+    return false;
+  }
+};
+
 const getApiUrl = () => {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
-  const isExcludedHost = configuredUrl?.includes('10.192.47.41');
+  const isExcludedHost = isHostExcluded(configuredUrl);
 
   // Dynamic IP detection for local development with Expo Go
   if (__DEV__) {

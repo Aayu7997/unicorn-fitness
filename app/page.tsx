@@ -21,8 +21,10 @@ import { TestimonialsSection } from '@/components/testimonials-section'
 import { GallerySection } from '@/components/gallery-section'
 import { Dumbbell, Users, Clock, Zap, Target, Heart, TrendingUp , Award, Trophy } from 'lucide-react'
 
+import { isProductionBuild } from '@/lib/utils'
+
 export default async function HomePage() {
-  // Fetch data concurrently via Promise.allSettled with static fallbacks
+  // Fetch data in a single batched transaction with static fallbacks
   let programs: any[] = indianPrograms
   let trainers: any[] = indianTrainers
   let testimonials: any[] = indianTestimonials
@@ -31,87 +33,60 @@ export default async function HomePage() {
   let faqs: any[] = indianFaqs
   let galleryImages: any[] = []
 
-  const [
-    programsResult,
-    trainersResult,
-    testimonialsResult,
-    siteContentResult,
-    plansResult,
-    faqsResult,
-    galleryResult,
-  ] = await Promise.allSettled([
-    prisma.program.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-      take: 3,
-    }),
-    prisma.trainer.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.testimonial.findMany({
-      where: { approved: true },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.siteContent.findUnique({
-      where: { key: 'main' },
-    }),
-    prisma.plan.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.fAQ.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.galleryImage.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-      take: 12,
-    }),
-  ])
+  try {
+    const [
+      dbPrograms,
+      dbTrainers,
+      dbTestimonials,
+      siteContentRecord,
+      dbPlans,
+      dbFaqs,
+      dbGallery,
+    ] = await prisma.$transaction([
+      prisma.program.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+        take: 3,
+      }),
+      prisma.trainer.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.testimonial.findMany({
+        where: { approved: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.siteContent.findUnique({
+        where: { key: 'main' },
+      }),
+      prisma.plan.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.fAQ.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.galleryImage.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+        take: 12,
+      }),
+    ])
 
-  // Apply fulfilled data or keep static fallbacks intact
-  if (programsResult.status === 'fulfilled' && programsResult.value.length > 0) {
-    programs = programsResult.value
-  } else if (programsResult.status === 'rejected') {
-    console.warn('Programs query failed:', programsResult.reason?.message || programsResult.reason)
-  }
-
-  if (trainersResult.status === 'fulfilled' && trainersResult.value.length > 0) {
-    trainers = trainersResult.value
-  } else if (trainersResult.status === 'rejected') {
-    console.warn('Trainers query failed:', trainersResult.reason?.message || trainersResult.reason)
-  }
-
-  if (testimonialsResult.status === 'fulfilled' && testimonialsResult.value.length > 0) {
-    testimonials = testimonialsResult.value
-  } else if (testimonialsResult.status === 'rejected') {
-    console.warn('Testimonials query failed:', testimonialsResult.reason?.message || testimonialsResult.reason)
-  }
-
-  if (siteContentResult.status === 'fulfilled' && siteContentResult.value?.content) {
-    siteContent = siteContentResult.value.content
-  } else if (siteContentResult.status === 'rejected') {
-    console.warn('Site content query failed:', siteContentResult.reason?.message || siteContentResult.reason)
-  }
-
-  if (plansResult.status === 'fulfilled' && plansResult.value.length > 0) {
-    plans = plansResult.value
-  } else if (plansResult.status === 'rejected') {
-    console.warn('Plans query failed:', plansResult.reason?.message || plansResult.reason)
-  }
-
-  if (faqsResult.status === 'fulfilled' && faqsResult.value.length > 0) {
-    faqs = faqsResult.value
-  } else if (faqsResult.status === 'rejected') {
-    console.warn('FAQs query failed:', faqsResult.reason?.message || faqsResult.reason)
-  }
-
-  if (galleryResult.status === 'fulfilled' && galleryResult.value.length > 0) {
-    galleryImages = galleryResult.value
-  } else if (galleryResult.status === 'rejected') {
-    console.warn('Gallery query failed:', galleryResult.reason?.message || galleryResult.reason)
+    if (dbPrograms && dbPrograms.length > 0) programs = dbPrograms
+    if (dbTrainers && dbTrainers.length > 0) trainers = dbTrainers
+    if (dbTestimonials && dbTestimonials.length > 0) testimonials = dbTestimonials
+    if (siteContentRecord && siteContentRecord.content) siteContent = siteContentRecord.content as any
+    if (dbPlans && dbPlans.length > 0) plans = dbPlans
+    if (dbFaqs && dbFaqs.length > 0) faqs = dbFaqs
+    if (dbGallery && dbGallery.length > 0) galleryImages = dbGallery
+  } catch (e) {
+    if (isProductionBuild()) {
+      console.warn('Prisma offline during build, using static homepage fallbacks')
+    } else {
+      throw e
+    }
   }
 
   return (

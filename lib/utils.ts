@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Returns true strictly during Next.js production build phase.
+ * Prevents build-only heuristics from triggering in runtime scripts.
+ */
+export function isProductionBuild(): boolean {
+  return process.env.NEXT_PHASE === 'phase-production-build'
+}
+
 export async function copyToClipboard(text: string): Promise<boolean> {
   if (typeof window === 'undefined') return false
 

@@ -1,11 +1,11 @@
 import { GalleryClient } from './gallery-client'
 import { prisma } from '@/lib/prisma'
+import { isProductionBuild } from '@/lib/utils'
 import type { GalleryImage } from '@prisma/client'
 
 export const revalidate = 60 // Revalidate every 60 seconds
 
 export default async function GalleryPage() {
-  const isBuild = process.env.NEXT_PHASE === 'phase-production-build' || process.env.npm_lifecycle_event === 'build'
   let allItems: GalleryImage[] = []
 
   try {
@@ -14,8 +14,8 @@ export default async function GalleryPage() {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     })
   } catch (e) {
-    if (isBuild) {
-      console.warn('Prisma offline during build, using empty gallery fallback:', (e as any)?.message || e)
+    if (isProductionBuild()) {
+      console.warn('Prisma offline during build, using empty gallery fallback')
     } else {
       // Rethrow at runtime so Next.js ISR retains the last successful page
       throw e

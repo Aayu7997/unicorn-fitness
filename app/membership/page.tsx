@@ -3,6 +3,7 @@ import { indianMembershipPlans, indianFaqs } from '@/lib/indian-data'
 import { PricingSection } from '@/components/pricing-section'
 import { FAQSection } from '@/components/faq-section'
 import { KineticText } from '@/components/ui/kinetic-text'
+import { isProductionBuild } from '@/lib/utils'
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -13,25 +14,26 @@ export const metadata: Metadata = {
 export const revalidate = 60 // Revalidate membership data periodically
 
 export default async function MembershipPage() {
-  const isBuild = process.env.NEXT_PHASE === 'phase-production-build' || process.env.npm_lifecycle_event === 'build'
   let plans = indianMembershipPlans
   let faqs = indianFaqs
 
   try {
-    const dbPlans = await prisma.plan.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' }
-    })
-    if (dbPlans && dbPlans.length > 0) plans = dbPlans
+    const [dbPlans, dbFaqs] = await Promise.all([
+      prisma.plan.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.fAQ.findMany({
+        where: { active: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+    ])
 
-    const dbFaqs = await prisma.fAQ.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' }
-    })
+    if (dbPlans && dbPlans.length > 0) plans = dbPlans
     if (dbFaqs && dbFaqs.length > 0) faqs = dbFaqs
   } catch (e) {
-    if (isBuild) {
-      console.warn('Prisma offline during build, using static membership fallbacks:', (e as any)?.message || e)
+    if (isProductionBuild()) {
+      console.warn('Prisma offline during build, using static membership fallbacks')
     } else {
       // Rethrow at runtime so Next.js ISR retains the last good page
       throw e
