@@ -24,16 +24,23 @@ const getApiUrl = () => {
     return 'http://localhost:3333/api';
   }
 
-  // Production fallback
-  return process.env.EXPO_PUBLIC_API_URL || 'https://your-production-url.com/api';
+  // Production fallback — enforce HTTPS (OWASP Mobile M5: Insecure Communication)
+  const prodUrl = process.env.EXPO_PUBLIC_API_URL || 'https://unicornfitnessclub.com/api';
+  if (!__DEV__ && prodUrl.startsWith('http://')) {
+    console.warn('Insecure cleartext HTTP detected in production build. Upgrading to HTTPS.');
+    return prodUrl.replace(/^http:\/\//i, 'https://');
+  }
+  return prodUrl;
 };
 
 export const API_URL = getApiUrl();
 
-if (API_URL.includes('10.0.2.2') || API_URL.includes('localhost')) {
-  console.warn(`⚠️ USING EMULATOR IP (${API_URL}). IF USING A PHYSICAL DEVICE, ENSURE YOUR PHONE AND COMPUTER ARE ON THE SAME WI-FI.`);
-} else {
-  console.log(`🔌 API URL Set to: ${API_URL}`);
+if (__DEV__) {
+  if (API_URL.includes('10.0.2.2') || API_URL.includes('localhost')) {
+    console.warn(`⚠️ USING EMULATOR IP (${API_URL}). IF USING A PHYSICAL DEVICE, ENSURE YOUR PHONE AND COMPUTER ARE ON THE SAME WI-FI.`);
+  } else {
+    console.log(`🔌 API URL Set to: ${API_URL}`);
+  }
 }
 
 export const api = axios.create({

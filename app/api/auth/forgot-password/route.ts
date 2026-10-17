@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const forgotSchema = z.object({
-  email: z.string().email('Invalid email'),
+  email: z.string().email('Invalid email').max(254),
 });
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request.headers);
+    const rateCheck = checkRateLimit(`forgot:${ip}`, { windowMs: 15 * 60 * 1000, max: 5 });
+
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: 'Too many password reset requests. Please wait 15 minutes before trying again.' },
+        { status: 429 }
+      );
+    }
     const body = await request.json();
     const parsed = forgotSchema.safeParse(body);
 
