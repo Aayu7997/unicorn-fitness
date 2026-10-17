@@ -10,24 +10,32 @@ export const metadata: Metadata = {
   description: 'Flexible fitness membership plans for all levels at Unicorn Fitness Club Jaipur.',
 }
 
+export const revalidate = 60 // Revalidate membership data periodically
+
 export default async function MembershipPage() {
-  let plans = indianMembershipPlans;
-  let faqs = indianFaqs;
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build' || process.env.npm_lifecycle_event === 'build'
+  let plans = indianMembershipPlans
+  let faqs = indianFaqs
 
   try {
     const dbPlans = await prisma.plan.findMany({
       where: { active: true },
       orderBy: { sortOrder: 'asc' }
-    });
-    if (dbPlans && dbPlans.length > 0) plans = dbPlans;
+    })
+    if (dbPlans && dbPlans.length > 0) plans = dbPlans
 
     const dbFaqs = await prisma.fAQ.findMany({
       where: { active: true },
       orderBy: { sortOrder: 'asc' }
-    });
-    if (dbFaqs && dbFaqs.length > 0) faqs = dbFaqs;
+    })
+    if (dbFaqs && dbFaqs.length > 0) faqs = dbFaqs
   } catch (e) {
-    console.warn("Prisma offline during build/render, using static membership fallbacks:", (e as any)?.message || e);
+    if (isBuild) {
+      console.warn('Prisma offline during build, using static membership fallbacks:', (e as any)?.message || e)
+    } else {
+      // Rethrow at runtime so Next.js ISR retains the last good page
+      throw e
+    }
   }
 
   return (

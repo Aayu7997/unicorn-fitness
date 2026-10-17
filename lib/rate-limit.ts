@@ -83,11 +83,23 @@ export function checkRateLimit(
 
 /**
  * Helper to extract client IP address from NextRequest headers safely.
+ * Prioritizes trusted ingress headers (cf-connecting-ip, x-real-ip) and uses the
+ * ingress-controlled entry from x-forwarded-for to prevent client IP spoofing.
  */
 export function getClientIp(headers: Headers): string {
+  const cfConnectingIp = headers.get('cf-connecting-ip')
+  if (cfConnectingIp) return cfConnectingIp.trim()
+
+  const realIp = headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+
   const forwarded = headers.get('x-forwarded-for')
   if (forwarded) {
-    return forwarded.split(',')[0].trim()
+    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
+    if (parts.length > 0) {
+      return parts[parts.length - 1]
+    }
   }
-  return headers.get('x-real-ip') || 'unknown'
+
+  return 'unknown'
 }

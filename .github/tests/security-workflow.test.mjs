@@ -19,11 +19,14 @@ function actionStep(job, action) {
   return matches[0];
 }
 
-function auditStep() {
+function auditStep(workingDir = undefined) {
   const matches = workflow.jobs["dependency-audit"].steps.filter(
-    (step) => typeof step.run === "string" && /\bnpm\s+audit\b/.test(step.run),
+    (step) =>
+      typeof step.run === "string" &&
+      /\bnpm\s+audit\b/.test(step.run) &&
+      step["working-directory"] === workingDir,
   );
-  assert.equal(matches.length, 1, "Expected one npm audit command");
+  assert.equal(matches.length, 1, `Expected one npm audit command for ${workingDir ?? "root"}`);
   return matches[0];
 }
 
@@ -129,12 +132,22 @@ describe("dependency vulnerability audit", () => {
     assert.deepEqual(audit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high"]);
   });
 
+  it("audits the mobile lockfile in ./mobile with high severity as the failure threshold", () => {
+    const mobileAudit = auditStep("./mobile");
+    assert.equal(mobileAudit["working-directory"], "./mobile");
+    assert.deepEqual(mobileAudit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high"]);
+  });
+
   for (const [status, scenario] of [
     [0, "a clean dependency report"],
     [1, "high or critical vulnerabilities"],
     [2, "an audit service error"],
   ]) {
-    it(`preserves npm exit status ${status} for ${scenario}`, () => {
+    it(`preserves npm exit status ${status} for ${scenario}`, (t) => {
+      if (process.platform === "win32") {
+        t.skip("This test exercises the Linux runner's default Bash shell");
+        return;
+      }
       const audit = auditStep();
       // Only execute the expected audit command, with an isolated npm stub.
       assert.deepEqual(audit.run.trim().split(/\s+/), ["npm", "audit", "--audit-level=high"]);

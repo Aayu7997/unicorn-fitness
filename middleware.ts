@@ -6,6 +6,16 @@ const ADMIN_ROUTES = ['/admin']
 // Routes that require user authentication
 const AUTH_ROUTES = ['/dashboard']
 
+function applySecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set('X-Frame-Options', 'DENY')
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.headers.set('X-XSS-Protection', '0')
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  return res
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionToken = request.cookies.get('auth_session')?.value
@@ -18,7 +28,7 @@ export async function middleware(request: NextRequest) {
     if (!sessionToken) {
       const loginUrl = new URL('/signin', request.url)
       loginUrl.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(loginUrl)
+      return applySecurityHeaders(NextResponse.redirect(loginUrl))
     }
 
     // Verify session server-side
@@ -29,7 +39,7 @@ export async function middleware(request: NextRequest) {
       })
 
       if (!verifyResponse.ok) {
-        const response = NextResponse.redirect(new URL('/signin', request.url))
+        const response = applySecurityHeaders(NextResponse.redirect(new URL('/signin', request.url)))
         response.cookies.delete('auth_session')
         return response
       }
@@ -38,28 +48,19 @@ export async function middleware(request: NextRequest) {
       if (isAdminRoute) {
         const data = await verifyResponse.json()
         if (data.user?.role !== 'admin') {
-          return NextResponse.redirect(new URL('/dashboard', request.url))
+          return applySecurityHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
         }
       }
     } catch {
       // On network error, redirect to login
-      const response = NextResponse.redirect(new URL('/signin', request.url))
+      const response = applySecurityHeaders(NextResponse.redirect(new URL('/signin', request.url)))
       response.cookies.delete('auth_session')
       return response
     }
   }
 
   const response = NextResponse.next()
-
-  // Apply enterprise security headers
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  response.headers.set('X-XSS-Protection', '1; mode=block')
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
-
-  return response
+  return applySecurityHeaders(response)
 }
 
 export const config = {

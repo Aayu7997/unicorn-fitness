@@ -4,31 +4,33 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const getApiUrl = () => {
-  // Use EXPO_PUBLIC_API_URL if it's explicitly set (and not the old hardcoded IP)
-  if (process.env.EXPO_PUBLIC_API_URL && !process.env.EXPO_PUBLIC_API_URL.includes('10.192.47.41')) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
+  const isExcludedHost = configuredUrl?.includes('10.192.47.41');
 
   // Dynamic IP detection for local development with Expo Go
   if (__DEV__) {
+    if (configuredUrl && !isExcludedHost) {
+      return configuredUrl;
+    }
     const debuggerHost = Constants.expoConfig?.hostUri;
     if (debuggerHost) {
       const ip = debuggerHost.split(':')[0];
-      // Defaulting to port 3333 as defined in package.json "dev: next dev -p 3333"
       return `http://${ip}:3333/api`;
     }
-    // Fallback for emulators if hostUri is unavailable
     if (Platform.OS === 'android') {
       return 'http://10.0.2.2:3333/api';
     }
     return 'http://localhost:3333/api';
   }
 
-  // Production fallback — enforce HTTPS (OWASP Mobile M5: Insecure Communication)
-  const prodUrl = process.env.EXPO_PUBLIC_API_URL || 'https://unicornfitnessclub.com/api';
-  if (!__DEV__ && prodUrl.startsWith('http://')) {
+  // Production fallback — reject excluded IP and enforce HTTPS (OWASP Mobile M5)
+  let prodUrl = configuredUrl && !isExcludedHost
+    ? configuredUrl
+    : 'https://unicornfitnessclub.com/api';
+
+  if (prodUrl.startsWith('http://')) {
     console.warn('Insecure cleartext HTTP detected in production build. Upgrading to HTTPS.');
-    return prodUrl.replace(/^http:\/\//i, 'https://');
+    prodUrl = prodUrl.replace(/^http:\/\//i, 'https://');
   }
   return prodUrl;
 };

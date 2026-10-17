@@ -36,7 +36,6 @@ jobs:
   dependency-audit:
     name: Dependency Vulnerability Audit
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -46,13 +45,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Run npm audit
-        run: npm audit --audit-level=high || true
+      - name: Run Root Dependency Audit
+        run: npm audit --audit-level=high
+
+      - name: Run Mobile Dependency Audit
+        working-directory: ./mobile
+        run: npm audit --audit-level=high
 
   secret-scan:
     name: Gitleaks Secret & Credential Detection
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

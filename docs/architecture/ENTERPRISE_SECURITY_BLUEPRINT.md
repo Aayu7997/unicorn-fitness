@@ -68,7 +68,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ## 5. Automated CI/CD Multi-Scanner Suite
 
-All code pushed to GitHub is automatically verified by 4 independent security analyzers:
+The security workflows scan pushes to main, pull requests targeting main, and scheduled weekly runs using 4 independent security analyzers:
 
 1. **GitHub CodeQL SAST** ([`.github/workflows/codeql.yml`](../../.github/workflows/codeql.yml)):
    - Deep semantic data-flow analysis for injection, taint tracking, and code vulnerabilities.
