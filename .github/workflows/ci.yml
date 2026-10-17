@@ -32,7 +32,7 @@ jobs:
           cache: "npm"
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -60,7 +60,7 @@ jobs:
 
       - name: Install Mobile Dependencies
         working-directory: ./mobile
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Run Mobile TypeScript Check
         working-directory: ./mobile
