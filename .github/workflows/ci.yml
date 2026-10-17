@@ -1,0 +1,67 @@
+name: CI Pipeline & Production Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-tests:
+    name: Web App Verification (Next.js 16 + Prisma)
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://mock_user:mock_password@localhost:5432/mock_db?sslmode=require"
+      DIRECT_URL: "postgresql://mock_user:mock_password@localhost:5432/mock_db?sslmode=require"
+      NEXTAUTH_SECRET: "ci-mock-secret-at-least-32-chars-long!!"
+      JWT_SECRET: "ci-mock-jwt-secret-at-least-32-chars!!"
+      NEXTAUTH_URL: "http://localhost:3333"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run TypeScript Typecheck
+        run: npm run typecheck
+
+      - name: Verify Production Build
+        run: npm run build
+
+  mobile-tests:
+    name: Mobile App Verification (Expo / React Native)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install Mobile Dependencies
+        working-directory: ./mobile
+        run: npm ci
+
+      - name: Run Mobile TypeScript Check
+        working-directory: ./mobile
+        run: npx tsc --noEmit

@@ -1,0 +1,377 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  admin
+  user
+}
+
+enum MembershipStatus {
+  active
+  expired
+  cancelled
+}
+
+enum InquiryStatus {
+  new
+  read
+  replied
+  closed
+}
+
+model User {
+  id                  String            @id @default(cuid())
+  memberId            String?           @unique
+  email               String            @unique
+  name                String
+  phone               String?
+  role                Role              @default(user)
+  customRole          String?
+  passwordHash        String?
+  authProvider        String            @default("local")
+  googleId            String?           @unique
+  googleAccessToken   String?
+  googleRefreshToken  String?
+  resetToken          String?
+  resetTokenExpiry    DateTime?
+  fitnessDataSyncedAt DateTime?
+  mustChangePassword  Boolean           @default(false)
+  passwordLastChangedAt DateTime?
+  twoFactorEnabled    Boolean           @default(false)
+  twoFactorSecret     String?
+  googleFitConnected  Boolean           @default(false)
+  samsungHealthConnected Boolean        @default(false)
+  height              Float?
+  age                 Int?
+  gender              String?
+  avatarUrl           String?
+  avatarPublicId      String?
+  expoPushToken       String?
+  membershipId        String?
+  membership          Membership?       @relation(fields: [membershipId], references: [id])
+  referralCode        String?           @unique
+  referredById        String?
+  referredBy          User?             @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals           User[]            @relation("UserReferrals")
+  programs            Program[]         @relation("UserPrograms")
+  progressLogs        ProgressLog[]
+  invoices            Invoice[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  sessions            Session[]
+  classBookings       ClassBooking[]
+  notifications       Notification[]
+  sentMessages        SupportMessage[]  @relation("SentMessages")
+  receivedMessages    SupportMessage[]  @relation("ReceivedMessages")
+  assignedPlans       AssignedPlan[]
+  advisorySessions    AdvisorySession[]
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  device    String?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Membership {
+  id        String           @id @default(cuid())
+  planId    String
+  plan      Plan             @relation(fields: [planId], references: [id])
+  users     User[]
+  startDate DateTime
+  endDate   DateTime
+  status    MembershipStatus @default(active)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model Plan {
+  id          String       @id @default(cuid())
+  name        String
+  price       Int
+  period      String       @default("month")
+  description String
+  features    String[]
+  popular     Boolean      @default(false)
+  active      Boolean      @default(true)
+  sortOrder   Int          @default(0)
+  memberships Membership[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Program {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String
+  duration      String
+  level         String
+  trainer       String
+  price         Int      @default(0)
+  imageUrl      String?
+  imagePublicId String?
+  benefits      String[]
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  users         User[]   @relation("UserPrograms")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Trainer {
+  id            String   @id @default(cuid())
+  name          String
+  role          String
+  specialty     String
+  experience    String
+  bio           String
+  imageUrl      String?
+  imagePublicId String?
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Testimonial {
+  id             String   @id @default(cuid())
+  name           String
+  role           String
+  location       String?
+  transformation String?
+  content        String
+  imageUrl       String?
+  imagePublicId  String?
+  rating         Int      @default(5)
+  approved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GalleryImage {
+  id            String   @id @default(cuid())
+  title         String?
+  category      String   @default("General")
+  imageUrl      String
+  imagePublicId String
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model BlogPost {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  excerpt       String
+  content       String
+  coverUrl      String?
+  coverPublicId String?
+  published     Boolean  @default(false)
+  author        String   @default("Unicorn Fitness Club")
+  tags          String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ContactInquiry {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    InquiryStatus @default(new)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model SiteContent {
+  key       String   @id @default("main")
+  content   Json
+  updatedAt DateTime @updatedAt
+}
+
+model ProgressLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weight     Float
+  bodyFat    Float?
+  muscleMass Float?
+  goal       String?
+  date       DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Invoice {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount   Int
+  status   String   @default("Paid")
+  planName String
+  date     DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ClassSchedule {
+  id          String         @id @default(cuid())
+  name        String
+  trainer     String
+  dayOfWeek   String
+  time        String
+  room        String
+  capacity    Int
+  bookedCount Int            @default(0)
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  bookings    ClassBooking[]
+}
+
+model ClassBooking {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classScheduleId String
+  classSchedule   ClassSchedule @relation(fields: [classScheduleId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([userId, classScheduleId])
+  @@index([userId])
+  @@index([classScheduleId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String?
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([role])
+}
+
+model SupportMessage {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model AssignedPlan {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedById String
+  type         String // "workout" or "diet"
+  content      Json // Flexible JSON structure for the plan details
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([assignedById])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  category    String
+  description String
+  amount      Float
+  status      String   @default("Paid") // Paid, Pending
+  date        DateTime @default(now())
+}
+
+model AdvisorySession {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic   String
+  advisor String
+  status  String   @default("Upcoming") // Upcoming, Completed, Cancelled
+  date    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  sku         String   @unique
+  category    String
+  quantity    Int      @default(0)
+  price       Float    @default(0)
+  status      String   @default("In Stock")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model StaffRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions Json
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  resource  String
+  details   String
+  ip        String?
+  device    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([resource])
+}

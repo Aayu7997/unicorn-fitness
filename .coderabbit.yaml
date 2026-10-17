@@ -1,0 +1,76 @@
+# ==============================================================================
+# CodeRabbit Configuration File (.coderabbit.yaml)
+# Unified Full-Stack Platform: Next.js 16 + Expo SDK 52 + Prisma + Neon Postgres
+# Documentation: https://docs.coderabbit.ai/
+# ==============================================================================
+
+language: "en-US"
+early_access: false
+
+tone_instructions: "Act as a Principal Full-Stack Architect. Provide concise, assertive, security-focused reviews with actionable diffs for Next.js 16, Prisma, and Expo."
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "master"
+      - "develop"
+      - "staging"
+
+  # Path filters to prevent CodeRabbit from wasting tokens on generated or static files
+  path_filters:
+    - "!node_modules/**"
+    - "!.next/**"
+    - "!out/**"
+    - "!build/**"
+    - "!dist/**"
+    - "!coverage/**"
+    - "!.vercel/**"
+    - "!*.tsbuildinfo"
+    - "!*.log"
+    - "!package-lock.json"
+    - "!mobile/package-lock.json"
+    - "!mobile/android/**"
+    - "!mobile/assets/**"
+    - "!mobile/.expo/**"
+    - "!public/images/**"
+    - "!docs/references/**"
+    - "!scripts/archive/**"
+
+  # Custom review instructions tailored to specific architectural domains
+  path_instructions:
+    - path: "app/api/**"
+      instructions: >
+        Scrutinize API routes for authentication checks (`auth-request.ts` or `session.ts`),
+        rate limiting, input validation with Zod, and error handling. Ensure no internal server
+        secrets or stack traces are leaked to clients.
+    - path: "app/admin/**"
+      instructions: >
+        Verify strict role-based access control (RBAC). Admin endpoints and pages must verify
+        that the authenticated session user has role === 'admin'.
+    - path: "lib/db.ts"
+      instructions: >
+        Ensure Prisma Client is instantiated as a global singleton to prevent multiple instances
+        in Next.js hot-reloading and serverless environments.
+    - path: "mobile/src/**"
+      instructions: >
+        Check for React Native performance bottlenecks, unmemoized inline functions in FlatLists,
+        proper SafeArea and keyboard handling, and NativeWind Tailwind class compatibility.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: "local"

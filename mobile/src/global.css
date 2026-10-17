@@ -1,0 +1,23 @@
+@tailwind utilities;
+
+:root {
+  --color-primary: #3A4C56;
+  --color-background: #F4F7F6;
+  --color-card: #FFFFFF;
+  --color-text: #1E293B;
+  --color-border: #E2E8F0;
+  --color-secondary: #E8F0EE;
+  --color-accent: #A8C6CB;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #FFFFFF;
+    --color-background: #0D1117;
+    --color-card: #161B22;
+    --color-text: #F8FAFC;
+    --color-border: #30363D;
+    --color-secondary: #21262D;
+    --color-accent: #A8C6CB;
+  }
+}

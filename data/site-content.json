@@ -1,0 +1,195 @@
+{
+  "brand": {
+    "name": "Unicorn Fitness Club",
+    "owner": "Lokesh Meena",
+    "phone": "087643 60662",
+    "email": "info@unicornfitness.com",
+    "address": "Aark Tower, Mahal Road, Near Jagatpura Flyover, Jaipur, Rajasthan 302017"
+  },
+  "home": {
+    "about": {
+      "eyebrow": "About Unicorn Fitness Club",
+      "title": "Premier Fitness Destination in Jaipur",
+      "description": "Owned by Lokesh Meena, Unicorn Fitness Club is Jaipur's premium fitness destination. We offer world-class facilities, certified trainers, and personalized programs designed to help you achieve your fitness goals.",
+      "locationText": "Located at Aark Tower, Mahal Road, Near Jagatpura Flyover, Jaipur, Rajasthan 302017",
+      "image": "/images/training-area.jpg",
+      "highlights": [
+        {
+          "title": "Certified Trainers",
+          "description": "Expert coaching team"
+        },
+        {
+          "title": "Premium Equipment",
+          "description": "Latest fitness gear"
+        }
+      ]
+    },
+    "whyChooseUs": {
+      "eyebrow": "Why Choose Us",
+      "title": "Premium Features for Your Success",
+      "features": [
+        {
+          "title": "Group Classes",
+          "description": "Join energizing group sessions led by expert instructors",
+          "image": "/images/group-class.jpg"
+        },
+        {
+          "title": "Personal Training",
+          "description": "One-on-one coaching tailored to your specific goals",
+          "image": "/images/trainer-1.jpg"
+        },
+        {
+          "title": "Modern Facilities",
+          "description": "State-of-the-art equipment and pristine workout spaces",
+          "image": "/images/cardio-zone.jpg"
+        }
+      ]
+    },
+    "facilities": {
+      "eyebrow": "Our Facilities",
+      "title": "World-Class Training Environment",
+      "firstImage": "/images/yoga-studio.jpg",
+      "secondImage": "/images/cardio-zone.jpg",
+      "firstColumn": [
+        {
+          "title": "24/7 Access",
+          "description": "Train on your schedule with round-the-clock gym access"
+        },
+        {
+          "title": "Premium Equipment",
+          "description": "Latest Technogym and Life Fitness equipment"
+        },
+        {
+          "title": "Recovery Zone",
+          "description": "Dedicated space for stretching and recovery"
+        }
+      ],
+      "secondColumn": [
+        {
+          "title": "Expert Coaching",
+          "description": "Certified trainers with years of experience"
+        },
+        {
+          "title": "Progress Tracking",
+          "description": "Advanced metrics and performance analytics"
+        },
+        {
+          "title": "Community",
+          "description": "Join a supportive fitness community"
+        }
+      ]
+    },
+    "cta": {
+      "image": "/images/whatsapp-image-2025-05-24-at-19.png",
+      "title": "Ready to Transform Your Life?",
+      "description": "Join over 15,000 members at Unicorn Fitness Club and start your journey to a healthier, stronger you. Limited spots available.",
+      "primaryButtonText": "Start Free Trial",
+      "secondaryButtonText": "Call: 087643 60662",
+      "ownerLine": "Owner: Lokesh Meena | Aark Tower, Mahal Road, Jaipur"
+    }
+  },
+  "pricing": [
+    {
+      "id": 1,
+      "name": "Starter",
+      "price": 2999,
+      "period": "month",
+      "description": "Perfect for beginners",
+      "features": ["Gym facility access", "Basic equipment usage", "3 days per week", "Member community access", "Locker facility"],
+      "popular": false
+    },
+    {
+      "id": 2,
+      "name": "Premium",
+      "price": 5999,
+      "period": "month",
+      "description": "Most popular plan",
+      "features": ["Unlimited gym access", "Personal trainer (2x per week)", "Nutrition consultation", "Locker & towel service", "Group classes included", "Monthly fitness assessment", "Priority booking"],
+      "popular": true
+    },
+    {
+      "id": 3,
+      "name": "Elite",
+      "price": 9999,
+      "period": "month",
+      "description": "Premium all-access experience",
+      "features": ["Everything in Premium", "Dedicated personal trainer", "Custom meal planning", "24/7 gym access", "Spa & recovery services", "Private training sessions", "Quarterly body composition analysis", "Guest pass (2 per month)", "Nutrition supplements discount"],
+      "popular": false
+    }
+  ],
+  "trainers": [
+    {
+      "id": 1,
+      "name": "Rajesh Kumar",
+      "role": "Head Coach - Strength Training",
+      "specialty": "Powerlifting & Bodybuilding",
+      "experience": "12 Years",
+      "image": "/images/trainer-1.jpg",
+      "bio": "Certified ISSF & NASM trainer specializing in strength and muscle development."
+    },
+    {
+      "id": 2,
+      "name": "Priya Sharma",
+      "role": "Certified Fitness Trainer",
+      "specialty": "HIIT & Cardio Training",
+      "experience": "8 Years",
+      "image": "/images/trainer-2.jpg",
+      "bio": "Expert in cardiovascular fitness and functional training for weight loss."
+    },
+    {
+      "id": 3,
+      "name": "Arun Patel",
+      "role": "Yoga & Flexibility Coach",
+      "specialty": "Yoga & Mobility",
+      "experience": "10 Years",
+      "image": "/images/trainer-3.jpg",
+      "bio": "Specialized in yoga, flexibility, and mindfulness training."
+    },
+    {
+      "id": 4,
+      "name": "Neha Kapoor",
+      "role": "Nutrition & Diet Specialist",
+      "specialty": "Nutrition Counseling",
+      "experience": "6 Years",
+      "image": "/images/trainer-4.jpg",
+      "bio": "Certified nutritionist providing personalized diet plans."
+    }
+  ],
+  "faqs": [
+    {
+      "id": 1,
+      "question": "How do I get started at Unicorn Fitness Club?",
+      "answer": "Getting started is easy! Visit our gym at Aark Tower, Mahal Road, Jaipur, or call us at 087643 60662 to schedule a free tour. Our team will assess your fitness goals and recommend the best membership plan for you."
+    },
+    {
+      "id": 2,
+      "question": "What are the gym timings?",
+      "answer": "We are open Monday to Saturday from 6:00 AM to 10:00 PM, and Sunday from 7:00 AM to 8:00 PM. Elite members enjoy 24/7 access with their membership card."
+    }
+  ],
+  "programs": [
+    {
+      "id": 1,
+      "name": "Strength & Power",
+      "duration": "12 weeks",
+      "level": "Intermediate to Advanced",
+      "description": "Build muscle mass and increase strength with powerlifting techniques",
+      "trainer": "Rajesh Kumar",
+      "price": 15999,
+      "image": "/images/training-area.jpg",
+      "benefits": ["Increase muscle mass", "Build functional strength", "Improve power output", "Expert form correction"]
+    }
+  ],
+  "testimonials": [
+    {
+      "id": 1,
+      "name": "Arjun Singh",
+      "role": "IT Professional",
+      "location": "Jaipur",
+      "transformation": "Lost 25 kg in 6 months",
+      "content": "Unicorn Fitness Club transformed my life. The guidance from Rajesh sir has given me amazing results. The facilities and professional trainers here are exceptional.",
+      "image": "/images/testimonial-1.jpg",
+      "rating": 5
+    }
+  ]
+}

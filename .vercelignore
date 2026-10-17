@@ -1,0 +1,15 @@
+# Exclude Mobile Application completely from Web deployments
+mobile/
+
+# Exclude Documentation & AI Agents
+docs/
+.agents/
+.vscode/
+
+# Exclude Development & Tooling Scripts
+scripts/
+
+# Exclude Diagnostic & Media Artifacts
+*.log
+*.zip
+*.pdf
