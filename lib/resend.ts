@@ -1,6 +1,10 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResendClient(): Resend | null {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return null
+  return new Resend(key)
+}
 
 const FROM_EMAIL = 'noreply@unicornfitness.com'
 const TO_EMAIL = process.env.CONTACT_EMAIL || 'Unicornfitness3111@gmail.com'
@@ -17,7 +21,8 @@ interface ContactEmailData {
  * Send contact form notification email to the gym owner.
  */
 export async function sendContactNotification(data: ContactEmailData): Promise<void> {
-  if (!process.env.RESEND_API_KEY) {
+  const resend = getResendClient()
+  if (!resend) {
     console.warn('RESEND_API_KEY not set — skipping email notification')
     return
   }
@@ -62,7 +67,8 @@ export async function sendContactNotification(data: ContactEmailData): Promise<v
  * Send welcome email to a new member.
  */
 export async function sendWelcomeEmail(name: string, email: string): Promise<void> {
-  if (!process.env.RESEND_API_KEY) return
+  const resend = getResendClient()
+  if (!resend) return
 
   await resend.emails.send({
     from: FROM_EMAIL,

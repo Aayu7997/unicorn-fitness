@@ -41,6 +41,12 @@ jobs:
         run: npm run typecheck
 
       - name: Verify Production Build
+        env:
+          RESEND_API_KEY: "re_ci_mock_test_key"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/unicorn_fitness?schema=public"
+          NEXTAUTH_SECRET: "ci-test-secret-that-is-at-least-32-chars-long"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
         run: npm run build
 
   mobile-tests:
