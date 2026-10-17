@@ -11,18 +11,24 @@ export const metadata: Metadata = {
 }
 
 export default async function MembershipPage() {
-  const dbPlans = await prisma.plan.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' }
-  });
-  // Transform plans if needed, PricingSection takes array of plans
-  const plans = dbPlans.length > 0 ? dbPlans : indianMembershipPlans;
+  let plans = indianMembershipPlans;
+  let faqs = indianFaqs;
 
-  const dbFaqs = await prisma.fAQ.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' }
-  });
-  const faqs = dbFaqs.length > 0 ? dbFaqs : indianFaqs;
+  try {
+    const dbPlans = await prisma.plan.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    if (dbPlans && dbPlans.length > 0) plans = dbPlans;
+
+    const dbFaqs = await prisma.fAQ.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    if (dbFaqs && dbFaqs.length > 0) faqs = dbFaqs;
+  } catch (e) {
+    console.warn("Prisma offline during build/render, using static membership fallbacks:", (e as any)?.message || e);
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground pt-32 pb-12 overflow-hidden">

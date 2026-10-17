@@ -22,48 +22,61 @@ import { GallerySection } from '@/components/gallery-section'
 import { Dumbbell, Users, Clock, Zap, Target, Heart, TrendingUp , Award, Trophy } from 'lucide-react'
 
 export default async function HomePage() {
-  // Fetch data from Prisma with fallback to indian-data
-  const dbPrograms = await prisma.program.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' },
-    take: 3
-  });
-  const programs = dbPrograms.length > 0 ? dbPrograms : indianPrograms;
+  // Fetch data from Prisma with fallback to static data
+  let programs: any[] = indianPrograms;
+  let trainers: any[] = indianTrainers;
+  let testimonials: any[] = indianTestimonials;
+  let siteContent: any = null;
+  let plans: any[] = indianMembershipPlans;
+  let faqs: any[] = indianFaqs;
+  let galleryImages: any[] = [];
 
-  const dbTrainers = await prisma.trainer.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' }
-  });
-  const trainers = dbTrainers.length > 0 ? dbTrainers : indianTrainers;
+  try {
+    const dbPrograms = await prisma.program.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' },
+      take: 3
+    });
+    if (dbPrograms && dbPrograms.length > 0) programs = dbPrograms;
 
-  const dbTestimonials = await prisma.testimonial.findMany({
-    where: { approved: true },
-    orderBy: { createdAt: 'desc' }
-  });
-  const testimonials = dbTestimonials.length > 0 ? dbTestimonials : indianTestimonials;
+    const dbTrainers = await prisma.trainer.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    if (dbTrainers && dbTrainers.length > 0) trainers = dbTrainers;
 
-  const siteContentRecord = await prisma.siteContent.findUnique({
-    where: { key: 'main' }
-  });
-  const siteContent = siteContentRecord ? (siteContentRecord.content as any) : null;
+    const dbTestimonials = await prisma.testimonial.findMany({
+      where: { approved: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (dbTestimonials && dbTestimonials.length > 0) testimonials = dbTestimonials;
 
-  const dbPlans = await prisma.plan.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' }
-  });
-  const plans = dbPlans.length > 0 ? dbPlans : indianMembershipPlans;
+    const siteContentRecord = await prisma.siteContent.findUnique({
+      where: { key: 'main' }
+    });
+    if (siteContentRecord && siteContentRecord.content) siteContent = siteContentRecord.content as any;
 
-  const dbFaqs = await prisma.fAQ.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' }
-  });
-  const faqs = dbFaqs.length > 0 ? dbFaqs : indianFaqs;
+    const dbPlans = await prisma.plan.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    if (dbPlans && dbPlans.length > 0) plans = dbPlans;
 
-  const galleryImages = await prisma.galleryImage.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' },
-    take: 12
-  });
+    const dbFaqs = await prisma.fAQ.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    if (dbFaqs && dbFaqs.length > 0) faqs = dbFaqs;
+
+    const dbGallery = await prisma.galleryImage.findMany({
+      where: { active: true },
+      orderBy: { sortOrder: 'asc' },
+      take: 12
+    });
+    if (dbGallery && dbGallery.length > 0) galleryImages = dbGallery;
+  } catch (e) {
+    console.warn("Prisma offline during build/render, using static fallbacks:", (e as any)?.message || e);
+  }
 
   return (
     <>
