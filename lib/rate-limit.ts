@@ -81,45 +81,69 @@ export function checkRateLimit(
   }
 }
 
+export interface ClientIpOptions {
+  trustProxy?: boolean
+  trustedHops?: number
+  trustedHeader?: 'cf-connecting-ip' | 'x-real-ip' | string
+  platformIp?: string
+}
+
 /**
  * Helper to extract client IP address from NextRequest headers safely.
  *
  * NOTE: Using reverse-proxy headers (cf-connecting-ip, x-real-ip) or peeling entries
  * from x-forwarded-for assumes a trusted proxy appends the client IP and that requests
  * reach the application only through the trusted proxy topology. When the trusted-proxy
- * configuration (TRUST_PROXY) is enabled, trusted ingress headers are evaluated and
- * forwarded entries are selected using a configurable trusted-proxy hop count (default: 1).
- * When disabled, it falls back to the platform-provided IP.
+ * configuration (TRUST_PROXY) is enabled, a specifically configured trusted header
+ * (options.trustedHeader) is evaluated; otherwise, forwarded entries are selected using a
+ * validated positive integer trusted-proxy hop count (default: 1).
+ * When trustProxy is disabled, it returns the trimmed platform-provided IP without
+ * reading proxy headers.
  *
  * @param headers Request Headers
  * @param options.trustProxy Explicit flag to trust reverse proxy headers (default: process.env.TRUST_PROXY === 'true')
  * @param options.trustedHops Number of trusted reverse-proxy hops to peel from the right of x-forwarded-for (default: 1)
+ * @param options.trustedHeader Explicit header to trust (e.g. 'cf-connecting-ip' or 'x-real-ip')
+ * @param options.platformIp Directly supplied platform/socket IP address
  */
 export function getClientIp(
   headers: Headers,
-  options?: { trustProxy?: boolean; trustedHops?: number }
+  options?: ClientIpOptions
 ): string {
   const trustProxy = options?.trustProxy ?? process.env.TRUST_PROXY === 'true'
-  const trustedHops = Math.max(1, options?.trustedHops ?? 1)
 
-  if (trustProxy) {
-    const cfConnectingIp = headers.get('cf-connecting-ip')
-    if (cfConnectingIp) return cfConnectingIp.trim()
+  // When trustProxy is disabled, return platform-provided IP without reading proxy headers
+  if (!trustProxy) {
+    const trimmed = options?.platformIp?.trim()
+    return trimmed ? trimmed : 'unknown'
+  }
 
-    const realIp = headers.get('x-real-ip')
-    if (realIp) return realIp.trim()
+  // Validate trustedHops as a positive integer; fall back to 1 for NaN, fractional, zero, or negative
+  const rawHops = options?.trustedHops
+  const trustedHops =
+    typeof rawHops === 'number' && Number.isInteger(rawHops) && rawHops > 0
+      ? rawHops
+      : 1
 
-    const forwarded = headers.get('x-forwarded-for')
-    if (forwarded) {
-      const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
-      if (parts.length > 0) {
-        // Select entry at parts.length minus configured hop count, clamped to 0
-        const index = Math.max(0, parts.length - trustedHops)
-        return parts[index]
-      }
+  // Use cf-connecting-ip or x-real-ip only when an explicit trusted-header setting selects one
+  if (options?.trustedHeader) {
+    const rawVal = headers.get(options.trustedHeader)
+    const trimmed = rawVal ? rawVal.trim() : ''
+    if (trimmed.length > 0) {
+      return trimmed
     }
   }
 
-  // Fallback to platform-provided IP without proxy assumptions
-  return headers.get('x-real-ip') || headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  // Process x-forwarded-for using validated trustedHops
+  const forwarded = headers.get('x-forwarded-for')
+  if (forwarded) {
+    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
+    if (parts.length > 0) {
+      const index = Math.max(0, parts.length - trustedHops)
+      return parts[index]
+    }
+  }
+
+  const fallback = options?.platformIp?.trim()
+  return fallback ? fallback : 'unknown'
 }
