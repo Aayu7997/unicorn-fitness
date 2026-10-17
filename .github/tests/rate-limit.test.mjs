@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-const { getClientIp } = await import("../../lib/rate-limit.ts");
+// Load getClientIp via the project's TypeScript runner (tsx) for Node 20 runtime compatibility,
+// falling back to native dynamic import if running under a runtime with native TS stripping.
+let getClientIp;
+try {
+  const { tsImport } = await import("tsx/esm/api");
+  const mod = await tsImport("../../lib/rate-limit.ts", import.meta.url);
+  getClientIp = mod.getClientIp ?? mod.default?.getClientIp;
+} catch {
+  const mod = await import("../../lib/rate-limit.ts");
+  getClientIp = mod.getClientIp ?? mod.default?.getClientIp;
+}
 
 describe("getClientIp - rate limit security & IP resolution", () => {
   it("when trustProxy is disabled, returns platformIp if non-empty", () => {
@@ -63,10 +73,18 @@ describe("getClientIp - rate limit security & IP resolution", () => {
       "client.ip"
     );
 
-    // trustedHops > parts.length clamps to index 0
+    // When parts has fewer entries than trustedHops, fall back to platformIp or 'unknown'
     assert.equal(
       getClientIp(headers, { trustProxy: true, trustedHops: 10 }),
-      "client.ip"
+      "unknown"
+    );
+    assert.equal(
+      getClientIp(headers, {
+        trustProxy: true,
+        trustedHops: 10,
+        platformIp: "198.51.100.99",
+      }),
+      "198.51.100.99"
     );
 
     // Fallbacks to 1 for NaN, fractional, zero, negative

@@ -138,9 +138,8 @@ export function getClientIp(
   const forwarded = headers.get('x-forwarded-for')
   if (forwarded) {
     const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
-    if (parts.length > 0) {
-      const index = Math.max(0, parts.length - trustedHops)
-      return parts[index]
+    if (parts.length >= trustedHops) {
+      return parts[parts.length - trustedHops]
     }
   }
 
