@@ -11,8 +11,14 @@ export async function POST(
   try {
     await requireAdmin()
 
-    const body = await req.json()
-    const { type } = body // e.g., 'Renewal Reminder' or 'Special Offer'
+    let body;
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const rawType = typeof body?.type === 'string' ? body.type.trim() : 'Special Offer'
+    const cleanType = rawType.replace(/[^a-zA-Z0-9\s-]/g, '').slice(0, 80) || 'Special Offer'
 
     const resolvedParams = await params;
     const memberId = resolvedParams.id;
@@ -32,23 +38,22 @@ export async function POST(
     }
 
     const systemInstruction = 'You are an expert gym marketing and customer relations manager at UFC GYM.'
-    const prompt = `
-You need to write a highly personalized ${type} message to be sent to a gym member.
+    const prompt = `You need to write a highly personalized ${cleanType} message to be sent to a gym member.
 Keep the tone professional, motivating, and polite. 
 It should be short, punchy, and sound like it was written by a human manager, not an AI.
 
-Member Details:
-- Name: ${member.name || 'Valued Member'}
+<member_details>
+- Name: ${(member.name || 'Valued Member').replace(/[\r\n<>]/g, '')}
 - Current Membership Status: ${member.membership ? member.membership.status : 'No active membership'}
 ${member.membership ? '- Current Plan: ' + member.membership.plan.name : ''}
 ${member.membership ? '- Expiry Date: ' + new Date(member.membership.endDate).toLocaleDateString() : ''}
+</member_details>
 
 Important:
 - Only output the raw message text. 
 - Do NOT wrap the message in quotes.
 - Do NOT add any preamble or concluding remarks. Just the message itself.
-- End the message with "Best regards, The UFC GYM Team"
-`
+- End the message with "Best regards, The UFC GYM Team"`
 
     const text = await generateAdvancedContent(prompt, systemInstruction, false);
     if (!text) throw new Error('No response from AI');

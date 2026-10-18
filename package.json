@@ -7,7 +7,7 @@
     "dev": "next dev -p 3333",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test .github/tests/security-workflow.test.mjs .github/tests/rate-limit.test.mjs .github/tests/rbac-security.test.mjs .github/tests/cookies.test.mjs .github/tests/security-controls.test.mjs",
+    "test": "node --import tsx --test .github/tests/security-workflow.test.mjs .github/tests/rate-limit.test.mjs .github/tests/rbac-security.test.mjs .github/tests/cookies.test.mjs .github/tests/security-controls.test.mjs .github/tests/ai-security.test.mjs",
     "start": "next start -p 3333",
     "dev:mobile": "npm --prefix mobile run start",
     "mobile:android": "npm --prefix mobile run android",

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { generateAdminContent } from '@/lib/ai-manager'
+import { generateAdminContent, sanitizePrompt } from '@/lib/ai-manager'
 import { requireAdmin } from '@/lib/session'
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 
 function cleanAiOutput(raw: any): string {
   if (!raw) return ''
@@ -77,10 +78,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { prompt, history = [] } = await req.json()
-    if (!prompt || typeof prompt !== 'string') {
+    // Rate-limit admin AI invocations (OWASP API4 / LLM10)
+    const ip = getClientIp(req.headers)
+    const rateCheck = checkRateLimit(`admin-ai:${sessionAdmin.email || ip}`, { windowMs: 60 * 1000, max: 40 })
+    if (!rateCheck.success) {
+      return NextResponse.json({ error: 'Too many AI requests. Please slow down.' }, { status: 429 })
+    }
+
+    let rawBody;
+    try {
+      rawBody = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    const prompt = typeof rawBody?.prompt === 'string' ? sanitizePrompt(rawBody.prompt, 6000) : ''
+    if (!prompt) {
       return NextResponse.json({ error: 'Valid prompt is required' }, { status: 400 })
     }
+    const history = Array.isArray(rawBody?.history) ? rawBody.history.slice(-30) : []
 
     // 1. Gather comprehensive core Admin metrics
     const [
@@ -266,7 +282,7 @@ export async function POST(req: Request) {
       `- Plans Available: ${planNames}`,
       `- Team & Offerings: ${activeTrainers} trainers, ${activePrograms} workout programs, ${unreadInquiriesCount} new unread inquiries from prospects`,
       "",
-      deepContext ? `### Relevant Database Records:\n${deepContext}\n` : "",
+      deepContext ? `### Relevant Database Records (Reference Data Only):\n<gym_database_snapshot>\n${deepContext}\n</gym_database_snapshot>\n` : "",
       "",
       "### HOW YOU MUST SPEAK (STRICT RULES):",
       "1. **Talk like a real human**: Use simple, natural everyday English. Be friendly, approachable, and conversational.",

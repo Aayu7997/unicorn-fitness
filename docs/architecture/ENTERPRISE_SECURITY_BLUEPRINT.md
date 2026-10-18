@@ -115,3 +115,23 @@ The security workflows scan pushes to main, pull requests targeting main, and sc
    - Scans commits for exposed API keys, private certificates, or auth secrets.
 4. **npm Audit** ([`.github/workflows/security.yml`](../../.github/workflows/security.yml)):
    - Detects known CVEs in upstream libraries across both root web app and mobile app.
+
+---
+
+## 8. OWASP Top 10 for LLM Applications & Vibe Coding Security (2025/2026 Edition)
+
+Modern AI-augmented applications ("vibe coding", autonomous agents, and copilot interfaces) introduce novel threat vectors. The platform implements comprehensive defenses across the entire OWASP Top 10 for Large Language Model Applications:
+
+| Risk Category | Threat Vector | Platform Defense Architecture |
+| :--- | :--- | :--- |
+| **LLM01: Prompt Injection** | Direct / indirect jailbreaks overriding system goals or role boundaries. | • `sanitizePrompt()` removes null bytes, Unicode Bidirectional overrides (U+202A–202E, U+2066–2069), and non-printable control characters.<br>• Dynamic user/member context is delimited inside strict XML data tags (`<user_context>`, `<member_details>`, `<gym_database_snapshot>`) instructing the model to treat content as untrusted passive reference data. |
+| **LLM02: Sensitive Information Disclosure** | Leaking customer PII, secrets, or internal DB schemas via AI responses. | • Database snapshots pre-filter sensitive fields (e.g., passwords, raw hashes, session tokens are never loaded into AI context).<br>• Vendor error responses are truncated and sanitized to prevent authorization header leakage. |
+| **LLM03: Supply Chain Vulnerabilities** | Compromised AI SDKs, third-party model endpoints, or poisoned libraries. | • Upstream AI packages (`@google/genai`) audited via npm audit and CodeQL in CI.<br>• Secure HTTPS-only vendor communication with fallback rotation (Groq -> Gemini -> OpenRouter). |
+| **LLM04: Data & Model Poisoning** | Malicious training data or malicious context polluting generation. | • Models only process validated database state snapshots with zero unverified external web ingestion. |
+| **LLM05: Improper Output Handling** | Model-generated Markdown or text containing `javascript:` URIs or HTML tags executing XSS or email phishing. | • `app/admin/tabs/ai-tab.tsx` enforces strict scheme whitelisting on markdown `<a>` tags (`https://`, `http://`, `mailto:` only; `javascript:` and `data:` schemes are blocked).<br>• `app/api/admin/members/[id]/ai-promo/send/route.ts` escapes all HTML entities (`&`, `<`, `>`, `"`, `'`) before rendering promotional emails via Resend. |
+| **LLM06: Excessive Agency** | Autonomous AI tools performing unintended state mutation or privilege actions. | • AI tool calls in Admin Copilot are read-only or staged for human approval (Human-in-the-Loop); no destructive DB actions can be executed by the model alone. |
+| **LLM07: System Prompt Leakage** | Attackers prompting the model to dump its internal system instructions or developer notes. | • `SYSTEM_GUARDRAILS` directive is automatically prepended to every AI prompt invocation across both user and admin endpoints, declaring system directives immutable and strictly forbidding prompt leakage or roleplay inversion. |
+| **LLM08: Vector & Embedding Weaknesses** | Cross-tenant data poisoning or context confusion in vector stores. | • Strict tenant isolation: User context queries filter by `sessionUser.id` and `activePlans`. Admin copilot requires verified `requireAdmin()` session before fetching gym metrics. |
+| **LLM09: Misinformation & Hallucination** | Models fabricating membership statuses, payments, or non-existent exercises. | • Structured system instructions ground models in real-time Prisma DB metrics.<br>• Response length and persona rules maintain concise, verified factual answers. |
+| **LLM10: Unbounded Consumption (Denial of Wallet)** | Attackers spamming AI endpoints with massive prompts or triggering runaway token generation. | • **Sliding Window Rate Limiting**: 20 req/min for user AI, 40 req/min for admin AI, 5 req/min for cron.<br>• **Payload Bounds**: Zod schemas cap prompts at 4,000 chars, history at 30 items, and base64 images at 10MB.<br>• **Token Clamping**: Hard limits (`max_tokens: 2048` on Groq/OpenRouter, `maxOutputTokens: 2048` on Gemini) eliminate infinite loop costs. |
+

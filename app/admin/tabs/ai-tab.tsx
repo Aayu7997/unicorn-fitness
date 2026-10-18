@@ -530,16 +530,22 @@ export function AiTab() {
     strong: ({ children }: any) => (
       <strong className="font-semibold text-foreground">{children}</strong>
     ),
-    a: ({ href, children }: any) => (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-foreground underline underline-offset-2 font-medium hover:opacity-75 transition-opacity"
-      >
-        {children}
-      </a>
-    ),
+    a: ({ href, children }: any) => {
+      const isSafe = typeof href === 'string' && /^(https?:\/\/|mailto:)/i.test(href.trim());
+      if (!isSafe) {
+        return <span className="underline underline-offset-2 opacity-80">{children}</span>;
+      }
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-foreground underline underline-offset-2 font-medium hover:opacity-75 transition-opacity"
+        >
+          {children}
+        </a>
+      );
+    },
   };
 
   return (

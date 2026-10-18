@@ -5,6 +5,15 @@ import prisma from '@/lib/prisma'
 import { Resend } from 'resend'
 export const dynamic = 'force-dynamic';
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -12,11 +21,20 @@ export async function POST(
   try {
     await requireAdmin()
 
-    const body = await req.json()
+    let body;
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
     const { message, type } = body
 
-    if (!message || !type) {
-      return NextResponse.json({ error: 'Message and type are required' }, { status: 400 })
+    if (!message || typeof message !== 'string' || !type || typeof type !== 'string') {
+      return NextResponse.json({ error: 'Valid message and type are required' }, { status: 400 })
+    }
+
+    if (message.length > 5000 || type.length > 100) {
+      return NextResponse.json({ error: 'Payload exceeds allowed length limits' }, { status: 400 })
     }
 
     const resolvedParams = await params;
@@ -36,12 +54,12 @@ export async function POST(
       data: {
         userId: memberId,
         title: type === 'Renewal Reminder' ? 'Membership Renewal Reminder' : 'Special Offer for You!',
-        message: message,
+        message: message.trim(),
         type: type === 'Renewal Reminder' ? 'alert' : 'promo'
       }
     })
 
-    // 2. Send Real Email via Resend
+    // 2. Send Real Email via Resend with HTML Escaping (OWASP LLM05 / A03 Injection defense)
     if (member.email && process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
@@ -54,7 +72,7 @@ export async function POST(
               <h1 style="color: #f97316; margin: 0;">UFC GYM</h1>
             </div>
             <div style="padding: 30px; border: 1px solid #eee;">
-              <p style="white-space: pre-wrap;">${message}</p>
+              <p style="white-space: pre-wrap;">${escapeHtml(message)}</p>
             </div>
           </div>
         `
