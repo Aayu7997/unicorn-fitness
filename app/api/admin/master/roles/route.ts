@@ -1,44 +1,42 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/session'
+import { getClientIp } from '@/lib/rate-limit'
 
 export async function GET(request: Request) {
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    await requireAdmin()
     const roles = await prisma.staffRole.findMany({
       orderBy: { createdAt: 'desc' }
     })
     
-    // We also need to count how many users have this role
-    // Since users store role in `customRole` as a string (role name or id)
-    // we can do a query to count.
     const rolesWithCounts = await Promise.all(roles.map(async (r) => {
       const count = await prisma.user.count({ where: { customRole: r.name } })
       return { ...r, usersCount: count }
     }))
     
     return NextResponse.json(rolesWithCounts)
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to fetch roles' }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    const user = await requireAdmin()
     const body = await request.json()
     const { name, description, permissions } = body
 
+    if (!name || typeof name !== 'string') {
+      return NextResponse.json({ error: 'Role name is required' }, { status: 400 })
+    }
+
     const role = await prisma.staffRole.create({
       data: {
-        name,
+        name: name.trim(),
         description,
         permissions: permissions || {}
       }
@@ -50,13 +48,16 @@ export async function POST(request: Request) {
         action: 'CREATE',
         resource: 'Role',
         details: `Created role "${name}"`,
-        ip: request.headers.get('x-forwarded-for') || '127.0.0.1',
+        ip: getClientIp(request.headers),
         device: request.headers.get('user-agent') || 'Unknown',
       }
     })
 
     return NextResponse.json(role)
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to create role' }, { status: 500 })
   }
 }

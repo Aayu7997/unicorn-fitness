@@ -12,15 +12,18 @@ function getSectionParam(section: string): EditableSection | null {
   return validSections.includes(s) ? s : null
 }
 
-async function isAdmin(request: NextRequest): Promise<boolean> {
+async function verifyAdmin(request: NextRequest): Promise<{ authorized: boolean; status?: number; error?: string }> {
   const session = await getSessionFromRequest(request)
-  return Boolean(session?.role === 'admin')
+  if (!session) return { authorized: false, status: 401, error: 'Unauthorized' }
+  if (session.role !== 'admin') return { authorized: false, status: 403, error: 'Forbidden' }
+  return { authorized: true }
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ section: string }> }) {
   try {
-    if (!(await isAdmin(request))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await verifyAdmin(request)
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
     const { section: sectionParam } = await params
@@ -38,8 +41,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ section: string }> }) {
   try {
-    if (!(await isAdmin(request))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await verifyAdmin(request)
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
     const { section: sectionParam } = await params

@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-
+import { requireAdmin } from '@/lib/session'
 import { getPeriodDateRange } from '@/lib/admin-period'
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession()
+    await requireAdmin()
     
     const { searchParams } = new URL(req.url)
     const period = searchParams.get('period') || '6m'
@@ -25,7 +24,10 @@ export async function GET(req: Request) {
     })
     
     const invoices = await prisma.invoice.findMany({
-      where: dateFilter,
+      where: {
+        ...dateFilter,
+        user: { role: 'user' }
+      },
       orderBy: { date: 'desc' }
     })
 
@@ -60,8 +62,6 @@ export async function GET(req: Request) {
       })
     }
 
-    // Sort by date (mock sort by creation order basically)
-    // We already have 'date', we'd normally parse and sort. For now, it's just a combined list.
     transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
     return NextResponse.json({
@@ -73,7 +73,10 @@ export async function GET(req: Request) {
       },
       transactions: transactions.slice(0, 50)
     })
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     console.error('Failed to fetch reports:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

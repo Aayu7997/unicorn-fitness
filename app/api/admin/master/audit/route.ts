@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/session'
 
 export async function GET(request: Request) {
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    await requireAdmin()
     const logs = await prisma.auditLog.findMany({
       include: {
         user: { select: { name: true, customRole: true, role: true } }
@@ -26,11 +23,14 @@ export async function GET(request: Request) {
       ip: l.ip || 'Unknown',
       device: l.device || 'Unknown',
       timestamp: l.createdAt.toISOString(),
-      status: 'Success' // Assuming all stored audit logs are successes, or we could add a status field
+      status: 'Success'
     }))
 
     return NextResponse.json(formattedLogs)
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 })
   }
 }

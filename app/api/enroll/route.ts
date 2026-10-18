@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
+import { AUTH_COOKIE_NAME } from '@/lib/cookies'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
 
   // 1. Authenticate User
   const cookieStore = await cookies()
-  const token = cookieStore.get('auth_session')
+  const token = cookieStore.get(AUTH_COOKIE_NAME)
 
   if (!token) {
     // Intercept to login
@@ -30,6 +31,13 @@ export async function GET(request: Request) {
   }
 
   const user = session.user
+
+  // STRICT LOGICAL & SECURITY RULE:
+  // Administrators are gym staff/management and cannot enroll in membership plans.
+  // Admins must never be members, receive memberships, or be redirected to user dashboard.
+  if (user.role === 'admin') {
+    return NextResponse.redirect(new URL('/admin?error=AdminsCannotEnroll', request.url))
+  }
 
   // 2. Fetch Plan
   let plan = await prisma.plan.findUnique({

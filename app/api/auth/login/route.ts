@@ -1,9 +1,11 @@
 import { authenticateUser } from '@/lib/auth'
+import { setAuthCookie } from '@/lib/cookies'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { verifyTOTP } from '@/lib/two-factor'
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -12,37 +14,25 @@ const loginSchema = z.object({
   twoFactorCode: z.string().optional(),
 })
 
-// Simple in-memory rate limiter (IP-based, resets on server restart)
-const attempts = new Map<string, { count: number; resetTime: number }>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = attempts.get(ip)
-  
-  if (!entry || entry.resetTime < now) {
-    attempts.set(ip, { count: 1, resetTime: now + 15 * 60 * 1000 })
-    return true
-  }
-  
-  // Allow up to 100 attempts in development instead of 5 to prevent lockouts during testing
-  if (entry.count >= (process.env.NODE_ENV === 'development' ? 100 : 5)) return false
-  
-  entry.count++
-  return true
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown'
+    const ip = getClientIp(request.headers)
+    const ipRateCheck = checkRateLimit(`login-ip:${ip}`, { windowMs: 15 * 60 * 1000, max: 10 })
     
-    if (!checkRateLimit(ip)) {
+    if (!ipRateCheck.success) {
       return NextResponse.json(
         { error: 'Too many login attempts. Please try again in 15 minutes.' },
         { status: 429 }
       )
     }
 
-    const body = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
     const parsed = loginSchema.safeParse(body)
     
     if (!parsed.success) {
@@ -54,6 +44,15 @@ export async function POST(request: NextRequest) {
 
     const { email, password, remember = false, twoFactorCode } = parsed.data
     const normalizedEmail = email.toLowerCase().trim()
+
+    // Dual rate-limiting: protect target account from distributed credential stuffing (OWASP API6 / A07)
+    const accountRateCheck = checkRateLimit(`login-acc:${normalizedEmail}`, { windowMs: 15 * 60 * 1000, max: 10 })
+    if (!accountRateCheck.success) {
+      return NextResponse.json(
+        { error: 'Too many login attempts for this account. Please try again in 15 minutes.' },
+        { status: 429 }
+      )
+    }
 
     // Check if user has 2FA enabled
     const userRecord = await (prisma.user as any).findUnique({
@@ -104,23 +103,13 @@ export async function POST(request: NextRequest) {
       message: 'Login successful',
     })
 
-    // 30 days if remember me is true, 1 day (24 hours) for standard sessions
-    const sessionMaxAge = remember ? 30 * 24 * 60 * 60 : 24 * 60 * 60
-
-    response.cookies.set('auth_session', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: sessionMaxAge,
-      path: '/',
-    })
+    setAuthCookie(response, result.token, remember)
 
     return response
   } catch (error: any) {
-    console.error('Login error:', error?.message || error)
-    console.error('Stack:', error?.stack)
+    console.error('Login error:', error?.message || 'Authentication error')
     return NextResponse.json(
-      { error: 'Internal server error', detail: process.env.NODE_ENV === 'development' ? error?.message : undefined },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

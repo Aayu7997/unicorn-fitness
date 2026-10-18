@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/session'
+import { requireAdmin } from '@/lib/session'
 import prisma from '@/lib/prisma'
 import { generateAdvancedContent } from '@/lib/ai-manager'
 
@@ -9,10 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getSession()
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    await requireAdmin()
 
     const body = await req.json()
     const { type } = body // e.g., 'Renewal Reminder' or 'Special Offer'
@@ -20,9 +17,9 @@ export async function POST(
     const resolvedParams = await params;
     const memberId = resolvedParams.id;
     
-    // Fetch member details
-    const member = await prisma.user.findUnique({
-      where: { id: memberId },
+    // Fetch member details (strictly regular members)
+    const member = await prisma.user.findFirst({
+      where: { id: memberId, role: 'user' },
       include: {
         membership: {
           include: { plan: true }
@@ -60,7 +57,10 @@ Important:
       success: true,
       message: text.trim()
     })
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     console.error('AI Promo Generation Error:', error)
     return NextResponse.json({ error: 'Failed to generate promotional message' }, { status: 500 })
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
+import { AUTH_COOKIE_NAME } from '@/lib/cookies'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
 
   // 1. Authenticate User
   const cookieStore = await cookies()
-  const token = cookieStore.get('auth_session')
+  const token = cookieStore.get(AUTH_COOKIE_NAME)
 
   if (!token) {
     // Intercept to login
@@ -30,6 +31,9 @@ export async function GET(request: Request) {
   }
 
   const user = session.user
+  if (user.role === 'admin') {
+    return NextResponse.redirect(new URL('/admin?error=AdminsCannotEnrollPrograms', request.url))
+  }
 
   // 2. Fetch Program
   const program = await prisma.program.findUnique({
@@ -59,6 +63,9 @@ export async function POST(request: Request) {
     const session = await (await import('@/lib/session')).getSession()
     if (!session?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (session.role === 'admin') {
+      return NextResponse.json({ error: 'Admins cannot enroll in user programs' }, { status: 403 })
     }
 
     const { programId } = await request.json()

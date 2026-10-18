@@ -10,6 +10,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (sessionUser.role !== 'user') {
+      return NextResponse.json({ error: 'Admins cannot book member classes' }, { status: 403 });
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: sessionUser.email }
     });
@@ -89,6 +93,10 @@ export async function DELETE(req: Request) {
     
     if (!sessionUser?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (sessionUser.role !== 'user') {
+      return NextResponse.json({ error: 'Admins cannot manage member class bookings' }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({

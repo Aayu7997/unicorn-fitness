@@ -1,19 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { authenticateGoogleUser } from '@/lib/auth'
+import {
+  OAUTH_STATE_COOKIE_NAME,
+  setAuthCookie,
+  deleteOAuthStateCookie,
+} from '@/lib/cookies'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   
-  const storedState = request.cookies.get('oauth_state')?.value
-  if (!state || state !== storedState) {
-    console.log('OAuth State Mismatch - Received:', state, 'Stored:', storedState)
-    return NextResponse.redirect(new URL('/signin?error=InvalidState', request.url))
+  const storedState = request.cookies.get(OAUTH_STATE_COOKIE_NAME)?.value
+  const isValidState = Boolean(
+    state &&
+    storedState &&
+    state.length === storedState.length &&
+    crypto.timingSafeEqual(Buffer.from(state), Buffer.from(storedState))
+  )
+
+  if (!isValidState) {
+    console.warn('OAuth State validation failed: state mismatch or expired')
+    const errRes = NextResponse.redirect(new URL('/signin?error=InvalidState', request.url))
+    deleteOAuthStateCookie(errRes)
+    return errRes
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL('/signin?error=NoCode', request.url))
+    const errRes = NextResponse.redirect(new URL('/signin?error=NoCode', request.url))
+    deleteOAuthStateCookie(errRes)
+    return errRes
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID
@@ -51,19 +68,18 @@ export async function GET(request: NextRequest) {
       tokenData.refresh_token
     )
 
-    const response = NextResponse.redirect(new URL('/dashboard', request.url))
-    response.cookies.set('auth_session', authResult.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
-    })
+    const redirectPath = authResult.user?.role === 'admin' ? '/admin' : '/dashboard'
+    const response = NextResponse.redirect(new URL(redirectPath, request.url))
+    
+    // Set hardened auth session cookie and evict consumed OAuth state cookie
+    setAuthCookie(response, authResult.token, true)
+    deleteOAuthStateCookie(response)
     
     return response
   } catch (error) {
-    console.error('Google OAuth Error:', error)
-    return NextResponse.redirect(new URL('/signin?error=OAuthFailed', request.url))
+    console.error('Google OAuth Error:', (error as any)?.message || 'OAuth callback failed')
+    const errRes = NextResponse.redirect(new URL('/signin?error=OAuthFailed', request.url))
+    deleteOAuthStateCookie(errRes)
+    return errRes
   }
 }
-

@@ -1,39 +1,87 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/session'
+import { z } from 'zod'
+
+const staffUpdateSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+  role: z.string().min(1).optional(),
+  avatarUrl: z.string().optional().nullable(),
+})
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    await requireAdmin()
+    const { id } = await params
     const body = await req.json()
-    const { name, email, role, avatarUrl } = body
+    const parsed = staffUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 })
+    }
+
+    const { name, email, role, avatarUrl } = parsed.data
+
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
+    }
+
+    if (targetUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Target user is not an administrative staff member' }, { status: 400 })
+    }
 
     const user = await prisma.user.update({
-      where: {
-        id
-      },
+      where: { id },
       data: {
-        name,
-        email,
-        role: 'admin',
-        customRole: role,
-        avatarUrl
+        ...(name ? { name } : {}),
+        ...(email ? { email: email.toLowerCase().trim() } : {}),
+        ...(role ? { customRole: role } : {}),
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        customRole: true,
+        avatarUrl: true,
       }
     })
 
     return NextResponse.json(user)
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to update staff' }, { status: 500 })
   }
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    await prisma.user.delete({
-      where: { id }
-    })
+    const currentAdmin = await requireAdmin()
+    const { id } = await params
+
+    if (currentAdmin.id === id) {
+      return NextResponse.json({ error: 'You cannot delete your own admin account' }, { status: 400 })
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
+    }
+
+    if (targetUser.email === 'unicornfitness3111@gmail.com') {
+      return NextResponse.json({ error: 'The primary system administrator account cannot be deleted' }, { status: 403 })
+    }
+
+    await prisma.user.delete({ where: { id } })
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to delete staff' }, { status: 500 })
   }
 }

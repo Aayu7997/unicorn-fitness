@@ -10,7 +10,6 @@ const schema = z.object({
   email: z.string().email(),
   name: z.string().min(2),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'user']).default('user'),
   password: z.string().min(8).optional(),
   membershipId: z.string().optional().nullable(),
   memberId: z.string().optional().nullable(),
@@ -20,10 +19,11 @@ export async function GET(request: NextRequest) {
   try {
     await requireAdmin()
     const search = request.nextUrl.searchParams.get('search') ?? ''
-    const role = request.nextUrl.searchParams.get('role')
     const page = Number(request.nextUrl.searchParams.get('page') ?? '1')
     const limit = Number(request.nextUrl.searchParams.get('limit') ?? '20')
 
+    // STRICT ROLE SEPARATION: Members are strictly users with role 'user'.
+    // Administrators are staff and must NEVER be queried or shown in member rosters.
     const where = {
       AND: [
         search ? {
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             { email: { contains: search, mode: 'insensitive' as const } },
           ],
         } : {},
-        role ? { role: role as Role } : { role: Role.user },
+        { role: Role.user },
       ],
     }
 
@@ -83,8 +83,9 @@ export async function POST(request: NextRequest) {
     const { password, ...data } = parsed.data
     const passwordHash = await hashPassword(password ?? 'ChangeMe@123!')
 
+    // Members created here are always role: 'user'. Admins/staff are created in Staff Management.
     const user = await prisma.user.create({
-      data: { ...data, passwordHash, mustChangePassword: !password },
+      data: { ...data, role: Role.user, passwordHash, mustChangePassword: !password },
       select: { id: true, email: true, name: true, role: true, createdAt: true },
     })
 

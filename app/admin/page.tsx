@@ -41,6 +41,7 @@ import { SeoTab } from './tabs/seo-tab'
 import { AdsTab } from './tabs/ads-tab'
 import { SupportTab } from './tabs/support-tab'
 import { SiteContentTab } from './tabs/site-content-tab'
+import { useToast } from '@/hooks/use-toast'
 
 interface SessionUser {
   id: string
@@ -115,6 +116,7 @@ const navGroups = [
 
 export default function AdminPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [user, setUser] = useState<SessionUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
@@ -127,14 +129,34 @@ export default function AdminPage() {
       const res = await fetch('/api/auth/me')
       if (!res.ok) { router.push('/signin?redirect=/admin'); return }
       const data = await res.json()
-      if (data.user?.role !== 'admin') { router.push('/'); return }
+      if (data.user?.role !== 'admin') { router.push('/dashboard'); return }
       setUser({ ...data.user, avatar: data.user.avatarUrl })
+
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const errorParam = urlParams.get('error')
+        if (errorParam === 'AdminsCannotEnroll') {
+          toast({
+            title: "Plan Enrollment Restricted",
+            description: "Administrators manage the gym and cannot enroll in membership plans.",
+            variant: "destructive"
+          })
+          window.history.replaceState({}, '', '/admin')
+        } else if (errorParam === 'AdminsCannotEnrollPrograms') {
+          toast({
+            title: "Program Enrollment Restricted",
+            description: "Administrators manage programs and cannot enroll as members.",
+            variant: "destructive"
+          })
+          window.history.replaceState({}, '', '/admin')
+        }
+      }
     } catch {
       router.push('/signin?redirect=/admin')
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [router, toast])
 
   const fetchBadgeCounts = useCallback(async () => {
     try {

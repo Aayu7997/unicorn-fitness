@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers'
 import { prisma } from './prisma'
+import { AUTH_COOKIE_NAME } from './cookies'
 
 export interface SessionUser {
   id: string
@@ -16,7 +17,7 @@ export interface SessionUser {
 export async function getSession(): Promise<SessionUser | null> {
   try {
     const cookieStore = await cookies()
-    let token = cookieStore.get('auth_session')?.value
+    let token = cookieStore.get(AUTH_COOKIE_NAME)?.value
     
     if (!token) {
       const headersList = await headers()
@@ -86,6 +87,22 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getSession()
   if (!user) {
     throw new Error('UNAUTHORIZED')
+  }
+  return user
+}
+
+/**
+ * Require a gym member (role === 'user').
+ * Throws UNAUTHORIZED if not logged in, or FORBIDDEN if user is an admin.
+ * Enforces separation of duties so admins cannot perform member-only actions.
+ */
+export async function requireMember(): Promise<SessionUser> {
+  const user = await getSession()
+  if (!user) {
+    throw new Error('UNAUTHORIZED')
+  }
+  if (user.role !== 'user') {
+    throw new Error('FORBIDDEN')
   }
   return user
 }

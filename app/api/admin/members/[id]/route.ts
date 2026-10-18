@@ -9,7 +9,6 @@ const schema = z.object({
   name: z.string().optional(),
   phone: z.string().optional().nullable(),
   memberId: z.string().optional().nullable(),
-  role: z.enum(['admin', 'user']).optional(),
   password: z.string().min(8).optional(),
   age: z.coerce.number().optional().nullable(),
   height: z.coerce.number().optional().nullable(),
@@ -27,8 +26,8 @@ export async function GET(_: NextRequest, { params }: Params) {
   try {
     await requireAdmin()
     const { id } = await params
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: { id, role: 'user' },
       select: {
         id: true, email: true, name: true, phone: true, memberId: true, role: true, createdAt: true,
         age: true, height: true, avatarUrl: true, avatarPublicId: true,
@@ -40,7 +39,7 @@ export async function GET(_: NextRequest, { params }: Params) {
         assignedPlans: { where: { active: true }, select: { type: true, content: true } }
       },
     })
-    if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: 'Member not found. Administrators cannot be accessed via member endpoints.' }, { status: 404 })
     revalidatePath('/', 'layout'); return NextResponse.json(user)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : ''
@@ -54,10 +53,24 @@ export async function PUT(request: NextRequest, { params }: Params) {
   try {
     await requireAdmin()
     const { id } = await params
+
+    // Verify target user exists and is strictly a gym member (role === 'user')
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, membershipId: true },
+    })
+    if (!targetUser) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+    if (targetUser.role !== 'user') {
+      return NextResponse.json(
+        { error: 'Administrators cannot be managed or assigned memberships through the member endpoint. Use Staff Management.' },
+        { status: 400 }
+      )
+    }
+
     let body;
     try {
       body = await request.json();
-    } catch (e) {
+    } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
     const parsed = schema.safeParse(body)
@@ -87,20 +100,18 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     // Handle Membership Changes
     if (cancelMembership) {
-      const currentUser = await prisma.user.findUnique({ where: { id }, select: { membershipId: true } })
-      if (currentUser?.membershipId) {
+      if (targetUser.membershipId) {
         await prisma.membership.update({
-          where: { id: currentUser.membershipId },
+          where: { id: targetUser.membershipId },
           data: { status: 'cancelled' }
         })
       }
     } else if (newPlanId) {
       const plan = await prisma.plan.findUnique({ where: { id: newPlanId } })
       if (plan) {
-        const currentUser = await prisma.user.findUnique({ where: { id }, select: { membershipId: true } })
-        if (currentUser?.membershipId) {
+        if (targetUser.membershipId) {
           await prisma.membership.update({
-            where: { id: currentUser.membershipId },
+            where: { id: targetUser.membershipId },
             data: { status: 'cancelled' }
           })
         }
@@ -145,6 +156,16 @@ export async function DELETE(_: NextRequest, { params }: Params) {
   try {
     await requireAdmin()
     const { id } = await params
+
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } })
+    if (!targetUser) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (targetUser.role !== 'user') {
+      return NextResponse.json(
+        { error: 'Administrators cannot be deleted via the member endpoint. Use Staff Management.' },
+        { status: 400 }
+      )
+    }
+
     await prisma.user.delete({ where: { id } })
     revalidatePath('/', 'layout'); return NextResponse.json({ success: true })
   } catch (e: unknown) {

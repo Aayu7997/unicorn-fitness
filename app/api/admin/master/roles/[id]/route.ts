@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/session'
+import { getClientIp } from '@/lib/rate-limit'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    const user = await requireAdmin()
+    const { id } = await params
     const body = await request.json()
     const { name, description, permissions } = body
 
     const oldRole = await prisma.staffRole.findUnique({ where: { id } })
+    if (!oldRole) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
 
     const role = await prisma.staffRole.update({
       where: { id },
@@ -20,7 +19,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     })
 
     if (oldRole && oldRole.name !== name) {
-      // Update any users that had the old role string to the new role string
       await prisma.user.updateMany({
         where: { customRole: oldRole.name },
         data: { customRole: name }
@@ -33,25 +31,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         action: 'UPDATE',
         resource: 'Role',
         details: `Updated role "${name}"`,
-        ip: request.headers.get('x-forwarded-for') || '127.0.0.1',
+        ip: getClientIp(request.headers),
         device: request.headers.get('user-agent') || 'Unknown',
       }
     })
 
     return NextResponse.json(role)
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to update role' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    const user = await requireAdmin()
+    const { id } = await params
+
     const role = await prisma.staffRole.findUnique({ where: { id } })
     if (role) {
       await prisma.staffRole.delete({ where: { id } })
@@ -62,13 +60,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
           action: 'DELETE',
           resource: 'Role',
           details: `Deleted role "${role.name}"`,
-          ip: request.headers.get('x-forwarded-for') || '127.0.0.1',
+          ip: getClientIp(request.headers),
           device: request.headers.get('user-agent') || 'Unknown',
         }
       })
     }
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to delete role' }, { status: 500 })
   }
 }

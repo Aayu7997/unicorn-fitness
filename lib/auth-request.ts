@@ -1,11 +1,12 @@
 import type { NextRequest } from 'next/server'
 import { prisma } from './prisma'
 import type { SessionUser } from './session'
+import { AUTH_COOKIE_NAME } from './cookies'
 
 export function getTokenFromRequest(request: NextRequest): string {
   const bearerToken = request.headers.get('authorization')?.replace('Bearer ', '').trim()
   if (bearerToken) return bearerToken
-  return request.cookies.get('auth_session')?.value || ''
+  return request.cookies.get(AUTH_COOKIE_NAME)?.value || ''
 }
 
 /**

@@ -558,14 +558,6 @@ export function MembersTab() {
                           </div>
                           <div>
                             <p className="font-semibold">{m.name}</p>
-                            {m.role === "admin" && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] mt-1 h-4"
-                              >
-                                ADMIN
-                              </Badge>
-                            )}
                           </div>
                         </div>
                       </TableCell>

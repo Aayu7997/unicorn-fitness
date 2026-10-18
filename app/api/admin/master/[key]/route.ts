@@ -1,31 +1,30 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/session'
+import { getClientIp } from '@/lib/rate-limit'
 
 export async function GET(request: Request, { params }: { params: Promise<{ key: string }> }) {
-  const { key } = await params
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    await requireAdmin()
+    const { key } = await params
+
     const record = await prisma.siteContent.findUnique({
       where: { key }
     })
     return NextResponse.json(record?.content || {})
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to fetch config' }, { status: 500 })
   }
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ key: string }> }) {
-  const { key } = await params
-  const user = { id: 'dummy-admin-id', role: 'admin' }
-  if (!user || user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    const user = await requireAdmin()
+    const { key } = await params
+
     const body = await request.json()
     const record = await prisma.siteContent.upsert({
       where: { key },
@@ -40,13 +39,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
         action: 'UPDATE',
         resource: `MasterConfig:${key}`,
         details: `Updated ${key} configuration`,
-        ip: request.headers.get('x-forwarded-for') || '127.0.0.1',
+        ip: getClientIp(request.headers),
         device: request.headers.get('user-agent') || 'Unknown',
       }
     })
 
     return NextResponse.json(record.content)
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: 'Failed to update config' }, { status: 500 })
   }
 }

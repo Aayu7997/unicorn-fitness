@@ -70,6 +70,10 @@ export default function Dashboard() {
       if (!res.ok) { router.push('/signin?redirect=/dashboard'); return }
       const data = await res.json()
       if (data.user) {
+        if (data.user.role === 'admin') {
+          router.replace('/admin')
+          return
+        }
         setUser(data.user)
       } else {
         router.push('/signin')

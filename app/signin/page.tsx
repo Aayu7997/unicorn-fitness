@@ -100,12 +100,22 @@ function SignInForm() {
       }
 
       const redirect = searchParams.get('redirect')
-      if (redirect) {
-        window.location.href = redirect
-      } else if (data.user?.role === 'admin') {
-        window.location.href = '/admin'
+      const isAdmin = data.user?.role === 'admin'
+
+      if (isAdmin) {
+        // Admins must ALWAYS go to the admin panel. Never redirect admins to user dashboard or plan enrollment.
+        if (redirect && redirect.startsWith('/admin') && !redirect.startsWith('//')) {
+          window.location.href = redirect
+        } else {
+          window.location.href = '/admin'
+        }
       } else {
-        window.location.href = '/dashboard'
+        // Normal members must NEVER be redirected to admin routes
+        if (redirect && !redirect.startsWith('/admin') && redirect.startsWith('/') && !redirect.startsWith('//')) {
+          window.location.href = redirect
+        } else {
+          window.location.href = '/dashboard'
+        }
       }
     } catch {
       setError('Network error. Please check your connection.')

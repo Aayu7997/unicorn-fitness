@@ -42,9 +42,16 @@ async function ensureDefaultAdmin(): Promise<void> {
           passwordHash,
           role: 'admin',
           mustChangePassword: false,
+          membershipId: null,
         },
       })
       console.log('Default admin user created:', DEFAULT_ADMIN_EMAIL)
+    } else if (existing.membershipId) {
+      // STRICT RULE: Admins cannot be members or have membershipId
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { membershipId: null },
+      })
     }
   } catch (error) {
     console.error('Could not ensure default admin:', error)

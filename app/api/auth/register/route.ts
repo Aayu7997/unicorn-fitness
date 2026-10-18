@@ -1,4 +1,5 @@
 import { registerUser } from '@/lib/auth'
+import { setAuthCookie } from '@/lib/cookies'
 import { sendWelcomeEmail } from '@/lib/resend'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
@@ -64,13 +65,7 @@ export async function POST(request: NextRequest) {
       message: 'Account created successfully',
     }, { status: 201 })
 
-    response.cookies.set('auth_session', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-    })
+    setAuthCookie(response, result.token, false)
 
     return response
   } catch (error) {

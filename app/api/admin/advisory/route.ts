@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { requireAdmin } from '@/lib/session'
 
 export async function GET(req: NextRequest) {
   try {
+    await requireAdmin()
     const sessions = await prisma.advisorySession.findMany({
       where: { user: { role: 'user' } },
       include: {
@@ -30,6 +32,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    await requireAdmin()
     const data = await req.json()
     const { userId, topic, advisor, status, date } = data
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateGoogleUser } from '@/lib/auth'
+import { setAuthCookie } from '@/lib/cookies'
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 const verifyTokenSchema = z.object({
@@ -8,6 +10,12 @@ const verifyTokenSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request.headers)
+    const rateCheck = checkRateLimit(`verify-token:${ip}`, { windowMs: 15 * 60 * 1000, max: 20 })
+    if (!rateCheck.success) {
+      return NextResponse.json({ error: 'Too many verification attempts. Please try again later.' }, { status: 429 })
+    }
+
     let body;
     try {
       body = await request.json();
@@ -25,7 +33,25 @@ export async function POST(request: NextRequest) {
 
     const { access_token } = parsed.data
 
-    // Fetch user info from Google
+    // 1. Verify token authenticity and audience with Google to prevent token substitution attacks (OWASP API2)
+    const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(access_token)}`)
+    if (!tokenInfoRes.ok) {
+      return NextResponse.json(
+        { error: 'Invalid or expired Google access token' },
+        { status: 401 }
+      )
+    }
+    const tokenInfo = await tokenInfoRes.json()
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID
+    if (expectedClientId && tokenInfo.issued_to && tokenInfo.issued_to !== expectedClientId && tokenInfo.audience !== expectedClientId) {
+      console.warn('Token audience mismatch in Google OAuth verification')
+      return NextResponse.json(
+        { error: 'Token audience does not match configured application client ID' },
+        { status: 401 }
+      )
+    }
+
+    // 2. Fetch user info from Google
     const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` }
     })
@@ -59,13 +85,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Also set the cookie for web, just in case
-    response.cookies.set('auth_session', authResult.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: '/',
-    })
+    setAuthCookie(response, authResult.token, true)
 
     return response
   } catch (error: any) {
