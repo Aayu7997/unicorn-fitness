@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/session'
 import { z } from 'zod'
 
+const PRIMARY_ADMIN_EMAIL = 'unicornfitness3111@gmail.com'
+
 const staffUpdateSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
@@ -31,11 +33,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Target user is not an administrative staff member' }, { status: 400 })
     }
 
+    const normalizedEmail = email ? email.toLowerCase().trim() : undefined
+    if (targetUser.email === PRIMARY_ADMIN_EMAIL && normalizedEmail && normalizedEmail !== PRIMARY_ADMIN_EMAIL) {
+      return NextResponse.json({ error: 'The primary system administrator email cannot be modified' }, { status: 403 })
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
         ...(name ? { name } : {}),
-        ...(email ? { email: email.toLowerCase().trim() } : {}),
+        ...(normalizedEmail ? { email: normalizedEmail } : {}),
         ...(role ? { customRole: role } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       },
@@ -72,7 +79,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
     }
 
-    if (targetUser.email === 'unicornfitness3111@gmail.com') {
+    if (targetUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Target user is not an administrative staff member' }, { status: 400 })
+    }
+
+    if (targetUser.email === PRIMARY_ADMIN_EMAIL) {
       return NextResponse.json({ error: 'The primary system administrator account cannot be deleted' }, { status: 403 })
     }
 

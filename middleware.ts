@@ -20,9 +20,15 @@ function applySecurityHeaders(res: NextResponse): NextResponse {
   res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   res.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
   res.headers.set('Cross-Origin-Resource-Policy', 'same-site')
+
+  const isDev = process.env.NODE_ENV === 'development'
+  const scriptSrc = isDev
+    ? "'self' 'unsafe-eval' 'unsafe-inline' https://res.cloudinary.com https://accounts.google.com"
+    : "'self' 'unsafe-inline' https://res.cloudinary.com https://accounts.google.com"
+
   res.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://res.cloudinary.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://res.cloudinary.com; frame-src 'self' https://accounts.google.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com;"
+    `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://res.cloudinary.com; frame-src 'self' https://accounts.google.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com;`
   )
   return res
 }
@@ -107,7 +113,9 @@ export async function middleware(request: NextRequest) {
 
       if (!verifyResponse.ok) {
         const response = applySecurityHeaders(NextResponse.redirect(new URL('/signin', request.url)))
-        deleteAuthCookie(response)
+        if (verifyResponse.status === 401 || verifyResponse.status === 403) {
+          deleteAuthCookie(response)
+        }
         return response
       }
 
@@ -125,10 +133,8 @@ export async function middleware(request: NextRequest) {
         return applySecurityHeaders(NextResponse.redirect(new URL('/admin', request.url)))
       }
     } catch {
-      // On network error, redirect to login
-      const response = applySecurityHeaders(NextResponse.redirect(new URL('/signin', request.url)))
-      deleteAuthCookie(response)
-      return response
+      // On network error, redirect to login without deleting valid session cookie
+      return applySecurityHeaders(NextResponse.redirect(new URL('/signin', request.url)))
     }
   }
 

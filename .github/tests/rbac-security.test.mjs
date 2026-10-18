@@ -98,7 +98,7 @@ describe('RBAC & Role Segregation Security Tests', () => {
     );
     assert.match(
       membersRoute,
-      /role:\s*(Role\.user|'user')/,
+      /user\.create\(\{\s*data:\s*\{[\s\S]*?role:\s*(Role\.user|'user')/,
       'Members POST route must strictly set role to user'
     );
   });

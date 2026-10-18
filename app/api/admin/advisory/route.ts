@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
     
     return NextResponse.json(formatted)
   } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     console.error('Advisory GET Error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
@@ -51,6 +54,9 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json(session)
   } catch (error: any) {
+    const msg = error?.message
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     console.error('Advisory POST Error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

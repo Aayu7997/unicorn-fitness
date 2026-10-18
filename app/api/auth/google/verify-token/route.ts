@@ -43,7 +43,16 @@ export async function POST(request: NextRequest) {
     }
     const tokenInfo = await tokenInfoRes.json()
     const expectedClientId = process.env.GOOGLE_CLIENT_ID
-    if (expectedClientId && tokenInfo.issued_to && tokenInfo.issued_to !== expectedClientId && tokenInfo.audience !== expectedClientId) {
+    if (!expectedClientId) {
+      console.error('GOOGLE_CLIENT_ID is not configured on the server')
+      return NextResponse.json(
+        { error: 'OAuth authentication service is not properly configured' },
+        { status: 500 }
+      )
+    }
+
+    const matchesClient = tokenInfo.issued_to === expectedClientId || tokenInfo.audience === expectedClientId
+    if (!matchesClient) {
       console.warn('Token audience mismatch in Google OAuth verification')
       return NextResponse.json(
         { error: 'Token audience does not match configured application client ID' },
