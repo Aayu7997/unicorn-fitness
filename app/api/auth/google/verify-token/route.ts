@@ -51,7 +51,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const matchesClient = tokenInfo.issued_to === expectedClientId || tokenInfo.audience === expectedClientId
+    const matchesClient =
+      tokenInfo.issued_to === expectedClientId ||
+      tokenInfo.audience === expectedClientId ||
+      tokenInfo.aud === expectedClientId
     if (!matchesClient) {
       console.warn('Token audience mismatch in Google OAuth verification')
       return NextResponse.json(
@@ -64,6 +67,12 @@ export async function POST(request: NextRequest) {
     const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` }
     })
+    if (!userRes.ok) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve user profile from Google' },
+        { status: 401 }
+      )
+    }
     const userData = await userRes.json()
 
     if (!userData.email) {

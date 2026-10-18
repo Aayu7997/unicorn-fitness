@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     console.error('Advisory GET Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load advisory sessions' }, { status: 500 })
   }
 }
 
@@ -58,6 +58,6 @@ export async function POST(req: NextRequest) {
     if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (msg === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     console.error('Advisory POST Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create advisory session' }, { status: 500 })
   }
 }

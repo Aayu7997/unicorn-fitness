@@ -4,7 +4,13 @@ import { createSession } from './session'
 
 const SALT_ROUNDS = 12
 
-const DEFAULT_ADMIN_EMAIL = 'unicornfitness3111@gmail.com'
+export const PRIMARY_ADMIN_EMAIL = (
+  process.env.ADMIN_EMAIL ||
+  process.env.PRIMARY_ADMIN_EMAIL ||
+  'unicornfitness3111@gmail.com'
+).toLowerCase().trim()
+
+const DEFAULT_ADMIN_EMAIL = PRIMARY_ADMIN_EMAIL
 const DEFAULT_ADMIN_PASSWORD = '-@123'
 const DEFAULT_ADMIN_NAME = 'Lokesh Meena'
 

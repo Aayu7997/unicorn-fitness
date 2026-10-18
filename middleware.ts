@@ -133,8 +133,10 @@ export async function middleware(request: NextRequest) {
         return applySecurityHeaders(NextResponse.redirect(new URL('/admin', request.url)))
       }
     } catch {
-      // On network error, redirect to login without deleting valid session cookie
-      return applySecurityHeaders(NextResponse.redirect(new URL('/signin', request.url)))
+      // On network error, redirect to login with original redirect path without deleting valid session cookie
+      const loginUrl = new URL('/signin', request.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return applySecurityHeaders(NextResponse.redirect(loginUrl))
     }
   }
 

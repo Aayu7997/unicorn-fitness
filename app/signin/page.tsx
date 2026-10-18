@@ -114,16 +114,21 @@ function SignInForm() {
         }
       }
 
+      const isAdminPath = (target: string) => {
+        const path = target.split('?')[0].split('#')[0]
+        return path === '/admin' || path.startsWith('/admin/')
+      }
+
       if (isAdmin) {
         // Admins must ALWAYS go to the admin panel. Never redirect admins to user dashboard or plan enrollment.
-        if (safeTarget && safeTarget.startsWith('/admin') && !safeTarget.startsWith('//')) {
+        if (safeTarget && isAdminPath(safeTarget) && !safeTarget.startsWith('//')) {
           window.location.href = safeTarget
         } else {
           window.location.href = '/admin'
         }
       } else {
         // Normal members must NEVER be redirected to admin routes
-        if (safeTarget && !safeTarget.startsWith('/admin') && safeTarget.startsWith('/') && !safeTarget.startsWith('//')) {
+        if (safeTarget && !isAdminPath(safeTarget) && safeTarget.startsWith('/') && !safeTarget.startsWith('//')) {
           window.location.href = safeTarget
         } else {
           window.location.href = '/dashboard'

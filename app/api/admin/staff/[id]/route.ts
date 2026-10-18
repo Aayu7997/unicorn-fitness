@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/session'
+import { PRIMARY_ADMIN_EMAIL } from '@/lib/auth'
 import { z } from 'zod'
-
-const PRIMARY_ADMIN_EMAIL = 'unicornfitness3111@gmail.com'
 
 const staffUpdateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -33,8 +32,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Target user is not an administrative staff member' }, { status: 400 })
     }
 
+    const targetEmail = targetUser.email.toLowerCase().trim()
     const normalizedEmail = email ? email.toLowerCase().trim() : undefined
-    if (targetUser.email === PRIMARY_ADMIN_EMAIL && normalizedEmail && normalizedEmail !== PRIMARY_ADMIN_EMAIL) {
+    if (targetEmail === PRIMARY_ADMIN_EMAIL && normalizedEmail && normalizedEmail !== PRIMARY_ADMIN_EMAIL) {
       return NextResponse.json({ error: 'The primary system administrator email cannot be modified' }, { status: 403 })
     }
 
@@ -83,7 +83,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Target user is not an administrative staff member' }, { status: 400 })
     }
 
-    if (targetUser.email === PRIMARY_ADMIN_EMAIL) {
+    const targetEmail = targetUser.email.toLowerCase().trim()
+    if (targetEmail === PRIMARY_ADMIN_EMAIL) {
       return NextResponse.json({ error: 'The primary system administrator account cannot be deleted' }, { status: 403 })
     }
 
